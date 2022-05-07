@@ -1,6 +1,6 @@
 import Dependencies._
 
-ThisBuild / sbtPlugin := true
+Global / onChangedBuildSource := ReloadOnSourceChanges
 
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / organization := "io.github.cake-lier"
@@ -55,7 +55,6 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Seq(
       typesafeConfig,
       ssh,
-      logger,
-      loggerAPI
+      cats
     )
   )

@@ -1,33 +1,33 @@
 package io.github.cakelier
 
-import com.decodified.scalassh.*
+import cats.implicits._
+import com.decodified.scalassh._
 import com.decodified.scalassh.HostKeyVerifiers.DontVerify
 import com.decodified.scalassh.PasswordProducer.fromString
 import com.decodified.scalassh.PublicKeyLogin.DefaultKeyLocations
 import com.typesafe.config.{ConfigException, ConfigFactory, ConfigParseOptions}
-import sbt.{file, singleFileFinder, AutoPlugin, InputKey, SettingKey, TaskKey, ThisBuild}
-import sbt.Def.*
-import sbt.Keys.*
+import sbt.{file, singleFileFinder, AutoPlugin, File, InputKey, SettingKey, TaskKey, ThisBuild}
+import sbt.Def._
+import sbt.Keys._
 import sbt.util.Logger
 
-import java.io.File
 import java.nio.file.Paths
-import scala.jdk.CollectionConverters.*
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 object RemoteDeployPlugin extends AutoPlugin {
 
   object autoImport {
-    val deployConfigurationsFiles: SettingKey[Seq[String]] = settingKey[Seq[String]](
+    val remoteDeployConfFiles: SettingKey[Seq[String]] = settingKey[Seq[String]](
       "Deploy configuration file paths located in project root directory"
     )
-    val deployConfigurations: SettingKey[Seq[RemoteConfiguration]] = settingKey[Seq[RemoteConfiguration]](
+    val remoteDeployConf: SettingKey[Seq[RemoteConfiguration]] = settingKey[Seq[RemoteConfiguration]](
       "Additional deploy configurations coming from the sbt configuration file"
     )
-    val deployArtifacts: TaskKey[Seq[(File, String)]] = taskKey[Seq[(File, String)]](
+    val remoteDeployArtifacts: TaskKey[Seq[(File, String)]] = taskKey[Seq[(File, String)]](
       "Artifacts that will be deployed to the remote locations"
     )
-    val remoteDeployAfterHook: SettingKey[Seq[SshClient => Unit]] =
+    val remoteDeployAfterHooks: SettingKey[Seq[SshClient => Unit]] =
       settingKey[Seq[SshClient => Unit]](
         "Hook for executing commands on remote locations after deploy"
       )
@@ -36,17 +36,17 @@ object RemoteDeployPlugin extends AutoPlugin {
     )
   }
 
-  import autoImport.*
+  import autoImport._
 
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
-    deployConfigurationsFiles := Seq.empty,
-    deployConfigurations := Seq.empty,
-    deployArtifacts := Seq.empty,
-    remoteDeployAfterHook := Seq.empty,
+    remoteDeployConfFiles := Seq.empty,
+    remoteDeployConf := Seq.empty,
+    remoteDeployArtifacts := Seq.empty,
+    remoteDeployAfterHooks := Seq.empty,
     remoteDeploy := {
       val log = streams.value.log
       val args = spaceDelimited("<first configuration name> <second configuration name> ...").parsed
-      val configs = deployConfigurationsFiles
+      val configs = remoteDeployConfFiles
         .value
         .map(p => {
           val path = file(((ThisBuild / baseDirectory).value / p).getPaths().head)
@@ -72,15 +72,15 @@ object RemoteDeployPlugin extends AutoPlugin {
               privateKeyPassphrase = Try(serverConfigurations.getString("privateKeyPassphrase")).toOption
             } yield RemoteConfiguration(
               configurationName,
-              RemoteLocation(remoteHost, remotePort, remoteUser, remotePassword),
-              privateKeyPassphrase,
-              privateKeyFile
+              RemoteLocation(remoteHost, remoteUser, remotePassword, remotePort),
+              privateKeyFile,
+              privateKeyPassphrase
             )
           )
-        ) ++ deployConfigurations.value
-      log.debug(s"${configs.size} have been loaded.")
-      val artifacts = deployArtifacts.value
-      val hooks = remoteDeployAfterHook.value
+        ) ++ remoteDeployConf.value
+      log.debug(s"${configs.size} configuration(s) loaded.")
+      val artifacts = remoteDeployArtifacts.value
+      val hooks = remoteDeployAfterHooks.value
       if (configs.nonEmpty) {
         log.debug(configs.mkString(", \n"))
         log.debug(s"Deploy is being started for server(s): ${args.mkString(", ")}.")
@@ -113,9 +113,8 @@ object RemoteDeployPlugin extends AutoPlugin {
           .map(_.toString)
           .map(k =>
             configuration
-              .remoteLocation
-              .password
-              .map(w => PublicKeyLogin(configuration.remoteLocation.user, w, k +: DefaultKeyLocations))
+              .passphrase
+              .map(p => PublicKeyLogin(configuration.remoteLocation.user, p, k +: DefaultKeyLocations))
               .getOrElse(PublicKeyLogin(configuration.remoteLocation.user, k +: DefaultKeyLocations: _*))
           )
           .getOrElse(
@@ -126,26 +125,28 @@ object RemoteDeployPlugin extends AutoPlugin {
       )
     ) { client =>
       log.debug(s"Connection with remote ${configuration.configurationName} established, copying artifacts.")
-      val transfers = artifacts.map { case (localFile, remotePath) =>
-        val localPath = localFile.getPath
-        log.debug(s"Copying artifact from local path $localPath to remote path $remotePath.")
-        client
-          .upload(localPath, remotePath)
-          .transform(
-            _ => {
-              log.debug(s"Artifact at path $localPath correctly copied")
-              Success(())
-            },
-            t => {
-              log.error(s"Artifact at local path $localPath copy failed with exception: $t")
-              Failure(t)
-            }
-          )
-      }
-      if (transfers.forall(_.isSuccess)) {
-        log.debug("All artifacts were copied correctly, executing after-deployment hooks.")
-        afterHooks.foreach(_.apply(client))
-      }
+      artifacts
+        .toList
+        .traverse { case (localFile, remotePath) =>
+          val localPath = localFile.getPath
+          log.debug(s"Copying artifact from local path $localPath to remote path $remotePath.")
+          client
+            .upload(localPath, remotePath)
+            .transform(
+              _ => {
+                log.debug(s"Artifact at path $localPath correctly copied")
+                Success(())
+              },
+              t => {
+                log.error(s"Artifact at local path $localPath copy failed with exception: $t")
+                Failure(t)
+              }
+            )
+        }
+        .foreach { _ =>
+          log.debug("All artifacts were copied correctly, executing after-deployment hooks.")
+          afterHooks.foreach(_.apply(client))
+        }
     }
   }
 }

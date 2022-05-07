@@ -8,9 +8,9 @@ trait RemoteConfiguration {
 
   val remoteLocation: RemoteLocation
 
-  val passphrase: Option[String]
-
   val privateKeyFile: Option[Path]
+
+  val passphrase: Option[String]
 }
 
 object RemoteConfiguration {
@@ -18,14 +18,28 @@ object RemoteConfiguration {
   private case class RemoteConfigurationImpl(
     configurationName: String,
     remoteLocation: RemoteLocation,
-    passphrase: Option[String],
-    privateKeyFile: Option[Path]
+    privateKeyFile: Option[Path],
+    passphrase: Option[String]
   ) extends RemoteConfiguration
 
   def apply(
     configurationName: String,
     remoteLocation: RemoteLocation,
-    passphrase: Option[String] = None,
-    privateKeyFile: Option[Path] = None
-  ): RemoteConfiguration = RemoteConfigurationImpl(configurationName, remoteLocation, passphrase, privateKeyFile)
+    privateKeyFile: Option[Path] = None,
+    passphrase: Option[String] = None
+  ): RemoteConfiguration =
+    RemoteConfigurationImpl(configurationName, remoteLocation, privateKeyFile, passphrase)
+
+  def apply(
+    configurationName: String,
+    remoteLocation: RemoteLocation,
+    privateKeyFile: Path
+  ): RemoteConfiguration = RemoteConfigurationImpl(configurationName, remoteLocation, Some(privateKeyFile), None)
+
+  def apply(
+    configurationName: String,
+    remoteLocation: RemoteLocation,
+    privateKeyFile: Path,
+    passphrase: String
+  ): RemoteConfiguration = RemoteConfigurationImpl(configurationName, remoteLocation, Some(privateKeyFile), Some(passphrase))
 }

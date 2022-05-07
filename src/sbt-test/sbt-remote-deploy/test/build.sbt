@@ -35,18 +35,17 @@ lazy val root = (project in file("."))
       val containerId = docker.createContainerCmd(imageId).withPortSpecs("22:2022").exec().getId
       docker.startContainerCmd(containerId).exec()
     },
-    deployConfigurations := Seq(
+    remoteDeployConf := Seq(
       RemoteConfiguration(
         "test",
-        RemoteLocation("ec2-34-234-69-43.compute-1.amazonaws.com", None, "ubuntu"),
-        None,
-        Some(Path("/home/matteo/Desktop/bigdata.pem").asPath)
+        RemoteLocation("ec2-34-234-69-43.compute-1.amazonaws.com", "ubuntu"),
+        file("/home/matteo/Desktop/bigdata.pem").asPath
       )
     ),
-    deployArtifacts := Seq(
+    remoteDeployArtifacts := Seq(
       (Compile / packageBin).value.getParentFile / (assembly / assemblyJarName).value -> "/home/ubuntu/main.jar"
     ),
-    remoteDeployAfterHook := Seq(sshClient => {
+    remoteDeployAfterHooks := Seq(sshClient => {
       println("Testing")
       val res = for {
         result <- sshClient.exec("ls *.jar")
