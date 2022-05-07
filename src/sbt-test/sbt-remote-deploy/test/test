@@ -1,0 +1,2 @@
+# Test if deployed JAR file is correctly copied and executed
+> remoteDeploy test
