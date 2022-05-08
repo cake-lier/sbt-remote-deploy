@@ -1,4 +1,3 @@
-import _root_.io.github.cakelier._
 import com.github.dockerjava.core.{DefaultDockerClientConfig, DockerClientImpl}
 import com.github.dockerjava.httpclient5.ApacheDockerHttpClient
 
@@ -36,23 +35,18 @@ lazy val root = (project in file("."))
       docker.startContainerCmd(containerId).exec()
     },
     remoteDeployConf := Seq(
-      RemoteConfiguration(
-        "test",
-        RemoteLocation("ec2-34-234-69-43.compute-1.amazonaws.com", "ubuntu"),
-        file("/home/matteo/Desktop/bigdata.pem").asPath
-      )
+      remoteConfiguration(withName = "test") {
+        has host "localhost"
+        has user "hadoop"
+      }
     ),
     remoteDeployArtifacts := Seq(
-      (Compile / packageBin).value.getParentFile / (assembly / assemblyJarName).value -> "/home/ubuntu/main.jar"
+      (Compile / packageBin).value.getParentFile / (assembly / assemblyJarName).value -> "/home/matteo/main.jar"
     ),
     remoteDeployAfterHooks := Seq(sshClient => {
-      println("Testing")
       val res = for {
         result <- sshClient.exec("ls *.jar")
       } yield result.stdOutAsString()
       println(res)
-      /*assert(result.isDefined)
-      println("received: " + result.get)
-      assert(result.get == "Hello world!")*/
     })
   )

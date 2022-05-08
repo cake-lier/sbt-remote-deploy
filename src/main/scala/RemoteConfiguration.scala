@@ -4,42 +4,37 @@ import java.nio.file.Path
 
 trait RemoteConfiguration {
 
-  val configurationName: String
+  val host: String
 
-  val remoteLocation: RemoteLocation
+  val port: Int
+
+  val user: String
+
+  val password: Option[String]
 
   val privateKeyFile: Option[Path]
 
-  val passphrase: Option[String]
+  val privateKeyPassphrase: Option[String]
 }
 
 object RemoteConfiguration {
 
   private case class RemoteConfigurationImpl(
-    configurationName: String,
-    remoteLocation: RemoteLocation,
+    host: String,
+    port: Int,
+    user: String,
+    password: Option[String],
     privateKeyFile: Option[Path],
-    passphrase: Option[String]
+    privateKeyPassphrase: Option[String]
   ) extends RemoteConfiguration
 
   def apply(
-    configurationName: String,
-    remoteLocation: RemoteLocation,
+    host: String,
+    port: Int,
+    user: String,
+    password: Option[String],
     privateKeyFile: Option[Path] = None,
-    passphrase: Option[String] = None
+    privateKeyPassphrase: Option[String] = None
   ): RemoteConfiguration =
-    RemoteConfigurationImpl(configurationName, remoteLocation, privateKeyFile, passphrase)
-
-  def apply(
-    configurationName: String,
-    remoteLocation: RemoteLocation,
-    privateKeyFile: Path
-  ): RemoteConfiguration = RemoteConfigurationImpl(configurationName, remoteLocation, Some(privateKeyFile), None)
-
-  def apply(
-    configurationName: String,
-    remoteLocation: RemoteLocation,
-    privateKeyFile: Path,
-    passphrase: String
-  ): RemoteConfiguration = RemoteConfigurationImpl(configurationName, remoteLocation, Some(privateKeyFile), Some(passphrase))
+    RemoteConfigurationImpl(host, port, user, password, privateKeyFile, privateKeyPassphrase)
 }
