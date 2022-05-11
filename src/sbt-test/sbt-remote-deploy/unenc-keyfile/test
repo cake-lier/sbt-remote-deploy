@@ -1,0 +1,10 @@
+# Initialize context
+> initTask
+# Create JAR file to deploy
+> assembly
+# Copy and execute JAR file to deploy
+> remoteDeploy test
+# Test if the previous task succeeded
+$ exists SUCCESS
+# Cleanup
+> teardownTask

@@ -1,0 +1,8 @@
+.bsp
+.idea
+project/
+src/
+target/
+build.sbt
+key.pem
+test

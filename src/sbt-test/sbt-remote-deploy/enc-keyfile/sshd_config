@@ -1,0 +1,4 @@
+PasswordAuthentication no
+PubkeyAuthentication yes
+AuthenticationMethods publickey
+PermitRootLogin yes
