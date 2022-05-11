@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-20.04
     env:
       TERM: dumb
+    permissions: write-all
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -18,5 +19,10 @@ jobs:
           java-version: "openjdk@1.17"
       - name: Run plugin tests
         run: sbt -v -Dfile.encoding=UTF-8 +scripted
+      - name: Publish plugin on GitHub
+        uses: "marvinpinto/action-automatic-releases@v1.2.0"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: false
       - name: Publish plugin on Sonatype
-        run: sbt -v -Dfile.encoding=UTF-8 +publish
+        run: sbt -v -Dfile.encoding=UTF-8 +publishSigned
