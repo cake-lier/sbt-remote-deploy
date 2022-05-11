@@ -1,14 +1,15 @@
 import Dependencies._
 
-Global / onChangedBuildSource := ReloadOnSourceChanges
-
-ThisBuild / version := "0.1.0-SNAPSHOT"
+ThisBuild / version := "1.0.0"
 ThisBuild / organization := "io.github.cake-lier"
 ThisBuild / organizationName := "cake_lier"
+ThisBuild / homepage := Some(
+  url("https://github.com/cake-lier/sbt-remote-deploy")
+)
 ThisBuild / scmInfo := Some(
   ScmInfo(
     url("https://github.com/cake-lier/sbt-remote-deploy"),
-    "scm:git@github.com:cake-lier/sbt-remote-deploy.git"
+    "git@github.com:cake-lier/sbt-remote-deploy.git"
   )
 )
 ThisBuild / developers := List(
@@ -19,25 +20,15 @@ ThisBuild / developers := List(
     url = url("https://github.com/cake-lier")
   )
 )
-
-ThisBuild / description := "Some description about your project."
+ThisBuild / description := "A sbt plugin for deploying a scala artifact remotely."
 ThisBuild / licenses := List(
-  "MIT" -> new URL("https://www.apache.org/licenses/LICENSE-2.0.txt")
+  "MIT" -> new URL("https://opensource.org/licenses/MIT")
 )
-ThisBuild / homepage := Some(
-  url("https://github.com/cake-lier/sbt-remote-deploy")
-)
-
-// Remove all additional repository other than Maven Central from POM
-ThisBuild / pomIncludeRepository := { _ => false }
-ThisBuild / publishTo := {
-  val nexus = "https://oss.sonatype.org/"
-  if (isSnapshot.value)
-    Some("snapshots" at nexus + "content/repositories/snapshots")
-  else
-    Some("releases" at nexus + "service/local/staging/deploy/maven2")
-}
 ThisBuild / publishMavenStyle := true
+ThisBuild / crossPaths := false
+ThisBuild / publishTo := Some(if (isSnapshot.value) Opts.resolver.sonatypeSnapshots else Opts.resolver.sonatypeStaging)
+
+Global / onChangedBuildSource := ReloadOnSourceChanges
 
 ThisBuild / scalaVersion := "2.12.14"
 
