@@ -11,7 +11,7 @@ jobs:
       TERM: dumb
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup scala environment
         uses: olafurpg/setup-scala@v10
         with:
