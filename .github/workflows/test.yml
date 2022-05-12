@@ -13,7 +13,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Setup scala environment
-        uses: olafurpg/setup-scala@v10
+        uses: olafurpg/setup-scala@v11
         with:
           java-version: "openjdk@1.17"
       - name: Run plugin tests
