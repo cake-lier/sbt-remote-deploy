@@ -23,7 +23,7 @@ sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
-ThisBuild / scalaVersion := "2.12.14"
+ThisBuild / scalaVersion := "2.13.8"
 
 ThisBuild / idePackagePrefix := Some("io.github.cakelier")
 
