@@ -4,8 +4,8 @@ import cats.implicits._
 import com.decodified.scalassh._
 import com.decodified.scalassh.HostKeyVerifiers.DontVerify
 import com.decodified.scalassh.PasswordProducer.fromString
-import com.typesafe.config.{ConfigFactory, ConfigParseOptions}
-import sbt.{file, singleFileFinder, AutoPlugin, File, InputKey, SettingKey, TaskKey, ThisBuild}
+import com.typesafe.config.ConfigFactory
+import sbt.{singleFileFinder, AutoPlugin, File, InputKey, SettingKey, TaskKey, ThisBuild}
 import sbt.Def._
 import sbt.Keys._
 import sbt.util.Logger
@@ -54,25 +54,34 @@ object RemoteDeployPlugin extends AutoPlugin {
       val args = spaceDelimited("<first configuration name> <second configuration name> ...").parsed
       val configs = remoteDeployConfFiles
         .value
+        .flatMap(r => {
+          val path = ((ThisBuild / baseDirectory).value / r).get().headOption
+          if (path.isEmpty) {
+            streams.value.log.warn(s"The configuration at $r was not found, check if the given path is correct.")
+          }
+          path
+        })
         .map(p => {
-          val path = file(((ThisBuild / baseDirectory).value / p).getPaths().head)
-          val configurationFile = ConfigFactory.parseFile(path, ConfigParseOptions.defaults).resolve()
+          val configurationFile = ConfigFactory.parseFile(p).resolve()
           if (configurationFile.isEmpty) {
-            streams.value.log.warn(s"The configuration at $path was found empty, check if the given path is correct.")
+            streams.value.log.warn(s"The configuration at $p was found empty, check if its format is correct.")
           }
           configurationFile
         })
         .foldLeft(Map.empty[String, RemoteConfiguration])((m, c) =>
           m ++ (
             for {
-              servers <- Set(c.getConfig("remotes"))
-              configurationName <- servers.root.keySet.asScala
-              remoteHost = servers.atKey(configurationName).getString("host")
-              remotePort = Try(servers.atKey(configurationName).getInt("port")).toOption
-              remoteUser = servers.atKey(configurationName).getString("user")
-              remotePassword = Try(servers.atKey(configurationName).getString("password")).toOption
-              privateKeyFile = Try(servers.atKey(configurationName).getString("privateKeyFile")).toOption.map(Paths.get(_))
-              privateKeyPassphrase = Try(servers.atKey(configurationName).getString("privateKeyPassphrase")).toOption
+              remotes <- Set(c.getConfig("remotes"))
+              configurationName <- remotes.root.keySet.asScala
+              remoteHost = remotes.getConfig(configurationName).getString("host")
+              remotePort = Try(remotes.getConfig(configurationName).getInt("port")).toOption
+              remoteUser = remotes.getConfig(configurationName).getString("user")
+              remotePassword = Try(remotes.getConfig(configurationName).getString("password")).toOption
+              privateKeyFile =
+                Try(remotes.getConfig(configurationName).getString("privateKeyFile"))
+                  .toOption
+                  .map(Paths.get(_))
+              privateKeyPassphrase = Try(remotes.getConfig(configurationName).getString("privateKeyPassphrase")).toOption
             } yield configurationName -> RemoteConfiguration(
               remoteHost,
               remotePort.getOrElse(22),

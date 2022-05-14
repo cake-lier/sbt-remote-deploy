@@ -4,7 +4,9 @@
 > assembly
 # Copy and execute JAR file to deploy
 > remoteDeploy test
-# Test if the previous task succeeded
-$ exists SUCCESS
 # Cleanup
 > teardownTask
+# Test if the previous task succeeded
+$ exists SUCCESS
+# Cleanup file
+$ delete SUCCESS

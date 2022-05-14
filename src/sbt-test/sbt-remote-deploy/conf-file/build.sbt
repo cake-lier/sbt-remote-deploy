@@ -5,7 +5,6 @@ import com.github.dockerjava.httpclient5.ApacheDockerHttpClient
 
 import java.nio.file.Files
 import java.time.Duration
-import scala.jdk.CollectionConverters.setAsJavaSetConverter
 
 ThisBuild / version := "1.0.0"
 
@@ -37,29 +36,21 @@ lazy val root = (project in file("."))
       )
       println("Pulling image...")
       docker
-        .pullImageCmd("matteocastellucci3/sbt-remote-deploy-enc-keyfile")
+        .pullImageCmd("matteocastellucci3/sbt-remote-deploy-conf-file")
         .start()
         .awaitCompletion()
       println("Creating container...")
       val portBindings = new Ports()
-      portBindings.bind(ExposedPort.tcp(22), Binding.bindPort(2022))
+      portBindings.bind(ExposedPort.tcp(22), Binding.bindPort(2025))
       docker
-        .createContainerCmd("matteocastellucci3/sbt-remote-deploy-enc-keyfile")
+        .createContainerCmd("matteocastellucci3/sbt-remote-deploy-conf-file")
         .withHostConfig(new HostConfig().withPortBindings(portBindings))
-        .withName("sbt-remote-deploy-enc-keyfile")
+        .withName("sbt-remote-deploy-conf-file")
         .exec()
       println("Starting container...")
-      docker.startContainerCmd("sbt-remote-deploy-enc-keyfile").exec()
+      docker.startContainerCmd("sbt-remote-deploy-conf-file").exec()
     },
-    remoteDeployConf := Seq(
-      remoteConfiguration(withName = "test") {
-        has host "localhost"
-        has port 2022
-        has user "root"
-        has privateKeyFile (baseDirectory.value / "key.pem").toString
-        has privateKeyPassphrase "example"
-      }
-    ),
+    remoteDeployConfFiles := Seq("example.conf"),
     remoteDeployArtifacts := Seq(
       (Compile / packageBin).value.getParentFile / (assembly / assemblyJarName).value -> "/root/main.jar"
     ),
@@ -96,10 +87,10 @@ lazy val root = (project in file("."))
           .build()
       )
       println("Stopping container...")
-      docker.stopContainerCmd("sbt-remote-deploy-enc-keyfile").exec()
+      docker.stopContainerCmd("sbt-remote-deploy-conf-file").exec()
       println("Deleting container...")
-      docker.removeContainerCmd("sbt-remote-deploy-enc-keyfile").exec()
+      docker.removeContainerCmd("sbt-remote-deploy-conf-file").exec()
       println("Deleting image...")
-      docker.removeImageCmd("matteocastellucci3/sbt-remote-deploy-enc-keyfile").exec()
+      docker.removeImageCmd("matteocastellucci3/sbt-remote-deploy-conf-file").exec()
     }
   )

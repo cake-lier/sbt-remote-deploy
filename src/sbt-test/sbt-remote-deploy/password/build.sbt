@@ -82,7 +82,6 @@ lazy val root = (project in file("."))
       }
     }),
     teardownTask := {
-      Files.deleteIfExists(baseDirectory.value.toPath.resolve("SUCCESS"))
       val config = DefaultDockerClientConfig.createDefaultConfigBuilder.build
       val docker = DockerClientImpl.getInstance(
         config,
