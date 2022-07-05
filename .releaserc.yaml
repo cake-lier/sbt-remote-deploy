@@ -1,0 +1,29 @@
+plugins:
+  - - '@semantic-release/commit-analyzer'
+    - preset: conventionalcommits
+  - '@semantic-release/release-notes-generator'
+  - '@semantic-release/changelog'
+  - - '@google/semantic-release-replace-plugin'
+    - replacements:
+        - files:
+            - README.md
+          from: 'addSbtPlugin.*'
+          to: 'addSbtPlugin("io.github.cake-lier" % "sbt-remote-deploy" % "${nextRelease.version}")'
+          results:
+            - file: README.md
+              hasChanged: true
+              numMatches: 1
+              numReplacements: 1
+          countMatches: true
+  - 'semantic-release-license'
+  - - '@semantic-release/exec'
+    - publishCmd: |
+        sbt ci-release || exit 1
+        git tag -a -f ${nextRelease.version} ${nextRelease.version} -F CHANGELOG.md        
+        git push --force origin ${nextRelease.version}
+  - - '@semantic-release/git'
+    - assets:
+        - README.md
+        - CHANGELOG.md
+        - LICENSE
+  - '@semantic-release/github'

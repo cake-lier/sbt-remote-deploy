@@ -13,6 +13,7 @@ ThisBuild / developers := List(
     url = url("https://github.com/cake-lier")
   )
 )
+ThisBuild / versionScheme := Some("semver-spec")
 ThisBuild / description := "A sbt plugin for deploying a scala artifact remotely."
 ThisBuild / licenses := List(
   "MIT" -> new URL("https://opensource.org/licenses/MIT")
@@ -27,6 +28,10 @@ ThisBuild / scalaVersion := "2.12.16"
 
 ThisBuild / idePackagePrefix := Some("io.github.cakelier")
 
+ThisBuild / scalafixDependencies ++= Seq(
+  "com.github.liancheng" %% "organize-imports" % "0.6.0"
+)
+
 lazy val root = (project in file("."))
   .enablePlugins(SbtPlugin)
   .settings(
@@ -36,9 +41,14 @@ lazy val root = (project in file("."))
         Seq("-Xmx1024M", "-Dplugin.version=" + version.value)
     },
     scriptedBufferLog := false,
+    semanticdbEnabled := true,
+    semanticdbVersion := scalafixSemanticdb.revision,
     libraryDependencies ++= Seq(
       typesafeConfig,
       ssh,
-      cats
-    )
+      cats,
+      scalactic,
+      sshj
+    ),
+    wartremoverErrors ++= Warts.all
   )
