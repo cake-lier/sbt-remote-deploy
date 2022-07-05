@@ -1,20 +1,47 @@
-name: Test automation
+name: Build and test
 
 on:
   push:
     branches:
-    - "main"
+    - "*"
+    paths-ignore:
+      - 'CHANGELOG.md'
+      - 'LICENSE'
+      - 'README.md'
+      - 'renovate.json'
 jobs:
   test:
-    runs-on: ubuntu-20.04
-    env:
-      TERM: dumb
+    name: Build and Test
+    strategy:
+      matrix:
+        os:
+          - ubuntu-20.04
+          - macos-11
+          - windows-2022
+        java:
+          - openjdk@1.17
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Setup scala environment
         uses: olafurpg/setup-scala@v13
         with:
-          java-version: "openjdk@1.17"
-      - name: Run plugin tests
-        run: sbt -v -Dfile.encoding=UTF-8 +scripted
+          java-version: ${{ matrix.java }}
+      - name: Cache sbt
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.sbt
+            ~/.ivy2/cache
+            ~/.coursier/cache/v1
+            ~/.cache/coursier/v1
+            ~/AppData/Local/Coursier/Cache/v1
+            ~/Library/Caches/Coursier/v1
+          key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
+      - name: Lint with scalafmt
+        run: sbt scalafmtCheckAll
+      - name: Check with scalafix
+        run: sbt 'scalafixAll --check'
+      - name: Test plugins
+        run: sbt scripted
