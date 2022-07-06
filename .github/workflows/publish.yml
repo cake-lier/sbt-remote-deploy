@@ -2,19 +2,18 @@ name: Publish
 
 on:
   push:
-    tags:
-      - "v[1-9]+.[0-9]+.[0-9]+"
-    branches-ignore:
-      - 'autodelivery**'
-      - 'bump-**'
-      - 'renovate/**'
-      - 'feature/**'
-      - 'fix/**'
+    branches:
+      - 'main'
     paths-ignore:
       - 'CHANGELOG.md'
       - 'LICENSE'
       - 'README.md'
       - 'renovate.json'
+      - '.github/workflows/**'
+      - '.releaserc.yaml'
+      - '.scalafix.conf'
+      - '.scalafmt.conf'
+      - 'package*.json'
 jobs:
   test:
     name: Build and Test
@@ -70,8 +69,10 @@ jobs:
         uses: olafurpg/setup-scala@v13
         with:
           java-version: "openjdk@1.17"
-      - name: Install npm
-        run: npm install
+      - name: Install node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 'lts/*'
       - name: Publish plugin
         run: npx semantic-release
         env:

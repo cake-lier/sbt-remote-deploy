@@ -2,13 +2,15 @@ name: Build and test
 
 on:
   push:
-    branches:
-    - "*"
+    branches-ignore:
+    - 'main'
     paths-ignore:
       - 'CHANGELOG.md'
       - 'LICENSE'
       - 'README.md'
       - 'renovate.json'
+      - '.releaserc.yaml'
+      - 'package*.json'
 jobs:
   test:
     name: Build and Test
