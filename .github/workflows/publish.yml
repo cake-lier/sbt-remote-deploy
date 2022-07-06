@@ -46,10 +46,13 @@ jobs:
           key: ${{ runner.os }}-sbt-cache-v2-${{ hashFiles('**/*.sbt') }}-${{ hashFiles('project/build.properties') }}
       - name: Lint with scalafmt
         run: sbt scalafmtCheckAll
+        shell: bash
       - name: Check with scalafix
         run: sbt 'scalafixAll --check'
+        shell: bash
       - name: Test plugins
         run: sbt scripted
+        shell: bash
 
   publish:
     name: Publish on Maven Central
