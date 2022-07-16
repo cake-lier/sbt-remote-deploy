@@ -1,18 +1,21 @@
 package io.github.cakelier
 
-import cats.implicits._
-import com.decodified.scalassh._
+import java.nio.file.Path
+
+import scala.jdk.CollectionConverters._
+import scala.util._
+
+import cats.syntax.all._
 import com.decodified.scalassh.HostKeyVerifiers.DontVerify
 import com.decodified.scalassh.PasswordProducer.fromString
+import com.decodified.scalassh._
 import com.typesafe.config.ConfigFactory
-import sbt.{singleFileFinder, AutoPlugin, File, InputKey, SettingKey, TaskKey, ThisBuild}
-import sbt.Def._
-import sbt.Keys._
+import sbt.Def.spaceDelimited
+import sbt.Keys.{baseDirectory, streams}
+import sbt._
 import sbt.util.Logger
 
-import java.nio.file.Paths
-import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Success, Try}
+import validation.Validation._
 
 object RemoteDeployPlugin extends AutoPlugin {
 
@@ -20,9 +23,10 @@ object RemoteDeployPlugin extends AutoPlugin {
     val remoteDeployConfFiles: SettingKey[Seq[String]] = settingKey[Seq[String]](
       "Deploy configuration file paths located in project root directory"
     )
-    val remoteDeployConf: SettingKey[Seq[(String, RemoteConfiguration)]] = settingKey[Seq[(String, RemoteConfiguration)]](
-      "Additional deploy configurations coming from the sbt configuration file"
-    )
+    val remoteDeployConf: SettingKey[Seq[(String, Option[RemoteConfiguration])]] =
+      settingKey[Seq[(String, Option[RemoteConfiguration])]](
+        "Additional deploy configurations coming from the sbt configuration file"
+      )
     val remoteDeployArtifacts: TaskKey[Seq[(File, String)]] = taskKey[Seq[(File, String)]](
       "Artifacts that will be deployed to the remote locations"
     )
@@ -34,73 +38,85 @@ object RemoteDeployPlugin extends AutoPlugin {
       "Deploy to the specified remote location. Usage: `remoteDeploy remoteName1 remoteName2`"
     )
 
-    val has: ConfigurationFactory = ConfigurationFactory()
+    @SuppressWarnings(Array("org.wartremover.warts.Var"))
+    private var configuration: RemoteConfiguration.Factory = RemoteConfiguration()
 
-    def remoteConfiguration(withName: String)(body: Unit): (String, RemoteConfiguration) = {
-      val configuration = withName -> has.build
-      has.reset()
-      configuration
+    object has {
+      def host(host: String): Unit = configuration = configuration.host(host)
+
+      def port(port: Int): Unit = configuration = configuration.port(port)
+
+      def user(user: String): Unit = configuration = configuration.user(user)
+
+      def password(password: String): Unit = configuration = configuration.password(Some(password))
+
+      def privateKeyFile(privateKeyFile: String): Unit = configuration =
+        configuration.privateKeyFile(Some(Path.of(privateKeyFile)))
+
+      def privateKeyPassphrase(privateKeyPassphrase: String): Unit =
+        configuration = configuration.privateKeyPassphrase(Some(privateKeyPassphrase))
+    }
+
+    def remoteConfiguration(withName: String)(body: => Unit): (String, Option[RemoteConfiguration]) = {
+      body
+      val tuple = withName -> configuration.create
+      configuration = RemoteConfiguration()
+      tuple
     }
   }
 
   import autoImport._
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Nothing"))
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
-    remoteDeployConfFiles := Seq.empty,
-    remoteDeployConf := Seq.empty,
-    remoteDeployArtifacts := Seq.empty,
-    remoteDeployAfterHooks := Seq.empty,
+    remoteDeployConfFiles := Seq.empty[String],
+    remoteDeployConf := Seq.empty[(String, Option[RemoteConfiguration])],
+    remoteDeployArtifacts := Seq.empty[(File, String)],
+    remoteDeployAfterHooks := Seq.empty[SshClient => Unit],
     remoteDeploy := {
       val args = spaceDelimited("<first configuration name> <second configuration name> ...").parsed
-      val configs = remoteDeployConfFiles
-        .value
-        .flatMap(r => {
-          val path = ((ThisBuild / baseDirectory).value / r).get().headOption
-          if (path.isEmpty) {
-            streams.value.log.warn(s"The configuration at $r was not found, check if the given path is correct.")
-          }
-          path
-        })
-        .map(p => {
-          val configurationFile = ConfigFactory.parseFile(p).resolve()
-          if (configurationFile.isEmpty) {
-            streams.value.log.warn(s"The configuration at $p was found empty, check if its format is correct.")
-          }
-          configurationFile
-        })
-        .foldLeft(Map.empty[String, RemoteConfiguration])((m, c) =>
-          m ++ (
-            for {
-              remotes <- Set(c.getConfig("remotes"))
-              configurationName <- remotes.root.keySet.asScala
-              remoteHost = remotes.getConfig(configurationName).getString("host")
-              remotePort = Try(remotes.getConfig(configurationName).getInt("port")).toOption
-              remoteUser = remotes.getConfig(configurationName).getString("user")
-              remotePassword = Try(remotes.getConfig(configurationName).getString("password")).toOption
-              privateKeyFile =
-                Try(remotes.getConfig(configurationName).getString("privateKeyFile"))
-                  .toOption
-                  .map(Paths.get(_))
-              privateKeyPassphrase = Try(remotes.getConfig(configurationName).getString("privateKeyPassphrase")).toOption
-            } yield configurationName -> RemoteConfiguration(
-              remoteHost,
-              remotePort.getOrElse(22),
-              remoteUser,
-              remotePassword,
-              privateKeyFile,
-              privateKeyPassphrase
-            )
-          )
-        ) ++ remoteDeployConf.value
+      val configs =
+        remoteDeployConfFiles
+          .value
+          .flatMap(r => {
+            val path = ((ThisBuild / baseDirectory).value / r).get().headOption
+            if (path.isEmpty) {
+              streams.value.log.warn(s"The configuration at $r was not found, check if the given path is correct.")
+            }
+            path.toList
+          })
+          .map(p => {
+            val configurationFile = ConfigFactory.parseFile(p).resolve()
+            if (configurationFile.isEmpty) {
+              streams.value.log.warn(s"The configuration at $p was found empty, check if its format is correct.")
+            }
+            configurationFile
+          })
+          .zipWithIndex
+          .foldLeft(Map.empty[String, Option[RemoteConfiguration]])((m, c) =>
+            m ++
+              Try(c._1.getConfig("remotes"))
+                .map(r =>
+                  r.root
+                    .keySet
+                    .asScala
+                    .toSeq
+                    .map(n => (n, validateConfiguration(Try(r.getConfig(n)), n, streams.value.log)))
+                )
+                .toOption
+                .getOrElse {
+                  streams.value.log.warn(s"Unable to parse configuration file #${c._2}, check if its format is correct.")
+                  Seq.empty[(String, Option[RemoteConfiguration])]
+                }
+          ) ++ remoteDeployConf.value
       streams.value.log.debug(s"${configs.size} configuration(s) loaded.")
       val artifacts = remoteDeployArtifacts.value
       val hooks = remoteDeployAfterHooks.value
       if (configs.nonEmpty) {
-        streams.value.log.debug(configs.mkString(", \n"))
-        streams.value.log.debug(s"Deploy is being started for server(s): ${args.mkString(", ")}.")
+        streams.value.log.debug(s"Deploy is being started for server(s): ${configs.keys.mkString(", ")}.")
         args.foreach { n =>
           streams.value.log.debug(s"Deploying to remote named $n.")
-          configs.get(n) match {
+          configs.get(n).flatten match {
             case Some(c) =>
               streams.value.log.debug(s"Configuration for remote $n found.")
               deploy(c, artifacts, hooks, streams.value.log)
@@ -109,10 +125,11 @@ object RemoteDeployPlugin extends AutoPlugin {
           }
         }
       }
-      streams.value.log.debug("The deployment has completed.")
+      streams.value.log.debug("The operation has completed.")
     }
   )
 
+  @SuppressWarnings(Array("org.wartremover.warts.ToString"))
   private def deploy(
     configuration: RemoteConfiguration,
     artifacts: Seq[(File, String)],
@@ -125,7 +142,7 @@ object RemoteDeployPlugin extends AutoPlugin {
         login = configuration
           .privateKeyFile
           .map(_.toString)
-          .map(k =>
+          .map[SshLogin](k =>
             configuration
               .privateKeyPassphrase
               .map(p => PublicKeyLogin(configuration.user, p, List(k)))
@@ -153,14 +170,22 @@ object RemoteDeployPlugin extends AutoPlugin {
               },
               t => {
                 log.error(s"Artifact at local path $localPath copy failed with exception: $t")
-                Failure(t)
+                Failure[Unit](t)
               }
             )
         }
-        .foreach { _ =>
-          log.debug("All artifacts were copied correctly, executing after-deployment hooks.")
-          afterHooks.foreach(_.apply(client))
-        }
+        .transform(
+          _ => {
+            log.debug("All artifacts were copied correctly, executing after-deployment hooks.")
+            afterHooks.map(f => Try(f(client))).toList.sequence.map(_ => ())
+          },
+          t => Try(log.error(s"While completing the deployment operation, the following exception happened: ${t.toString}"))
+        )
+    } match {
+      case Failure(t) =>
+        log.error(s"While executing the after-deployment hooks, the following exception happened: ${t.toString}")
+      case Success(_) =>
+        log.debug("All after-deployment hooks completed correctly.")
     }
   }
 }

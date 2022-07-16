@@ -2,8 +2,11 @@ import Dependencies._
 
 ThisBuild / organization := "io.github.cake-lier"
 ThisBuild / organizationName := "cake_lier"
-ThisBuild / homepage := Some(
-  url("https://github.com/cake-lier/sbt-remote-deploy")
+ThisBuild / scmInfo := Some(
+  ScmInfo(
+    url("https://github.com/cake-lier/sbt-remote-deploy"),
+    "scm:git@github.com:cake-lier/sbt-remote-deploy.git"
+  )
 )
 ThisBuild / developers := List(
   Developer(
@@ -13,14 +16,20 @@ ThisBuild / developers := List(
     url = url("https://github.com/cake-lier")
   )
 )
-ThisBuild / versionScheme := Some("semver-spec")
 ThisBuild / description := "A sbt plugin for deploying a scala artifact remotely."
 ThisBuild / licenses := List(
   "MIT" -> new URL("https://opensource.org/licenses/MIT")
 )
+ThisBuild / homepage := Some(
+  url("https://github.com/cake-lier/sbt-remote-deploy")
+)
+ThisBuild / pomIncludeRepository := { _ => false }
+
+ThisBuild / publishMavenStyle := true
+ThisBuild / versionScheme := Some("semver-spec")
 ThisBuild / crossPaths := false
-sonatypeCredentialHost := "s01.oss.sonatype.org"
-sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
+ThisBuild / publishTo := sonatypePublishToBundle.value
+ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
@@ -40,6 +49,7 @@ lazy val root = (project in file("."))
       scriptedLaunchOpts.value ++
         Seq("-Xmx1024M", "-Dplugin.version=" + version.value)
     },
+    version := "1.1.0",
     scriptedBufferLog := false,
     semanticdbEnabled := true,
     semanticdbVersion := scalafixSemanticdb.revision,
@@ -47,8 +57,12 @@ lazy val root = (project in file("."))
       typesafeConfig,
       ssh,
       cats,
-      scalactic,
-      sshj
+      scalactic
+      // sshj
+    ),
+    scalacOptions ++= Seq(
+      "-Ywarn-unused",
+      "-Ypartial-unification"
     ),
     wartremoverErrors ++= Warts.all
   )
