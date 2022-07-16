@@ -47,8 +47,12 @@ lazy val root = (project in file("."))
       typesafeConfig,
       ssh,
       cats,
-      scalactic,
-      sshj
+      scalactic
+      // sshj
+    ),
+    scalacOptions ++= Seq(
+      "-Ywarn-unused",
+      "-Ypartial-unification"
     ),
     wartremoverErrors ++= Warts.all
   )
