@@ -6,7 +6,7 @@ A sbt plugin for deploying one or more scala artifacts remotely.
 Simply add the following line to your ``project/plugins.sbt``:
 
 ``` scala
-addSbtPlugin("io.github.cake-lier" % "sbt-remote-deploy" % "1.0.1")
+addSbtPlugin("io.github.cake-lier" % "sbt-remote-deploy" % "1.0.2")
 ```
 
 ## How to use

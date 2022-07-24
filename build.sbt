@@ -49,7 +49,7 @@ lazy val root = (project in file("."))
       scriptedLaunchOpts.value ++
         Seq("-Xmx1024M", "-Dplugin.version=" + version.value)
     },
-    version := "1.1.0",
+    version := "1.0.2",
     scriptedBufferLog := false,
     semanticdbEnabled := true,
     semanticdbVersion := scalafixSemanticdb.revision,
