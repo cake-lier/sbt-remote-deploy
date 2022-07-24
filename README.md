@@ -1,4 +1,10 @@
 # sbt-remote-deploy
+
+[![Build status](https://github.com/cake-lier/sbt-remote-deploy/actions/workflows/publish.yml/badge.svg)](https://github.com/cake-lier/sbt-remmote-deploy/actions/workflows/publish.yml)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/io.github.cake-lier/sbt-remote-deploy/badge.svg)](https://maven-badges.herokuapp.com/maven-central/io.github.cake-lier/sbt-remote-deploy/)
+[![semantic-release: conventional-commits](https://img.shields.io/badge/semantic--release-conventional_commits-e10098?logo=semantic-release)](https://github.com/semantic-release/semantic-release)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A sbt plugin for deploying one or more scala artifacts remotely.
 
 ## How to install
