@@ -1,21 +1,18 @@
 package io.github.cakelier
 
+import java.io.File
 import java.nio.file.Path
 
 import scala.jdk.CollectionConverters._
 import scala.util._
 
-import cats.syntax.all._
-import com.decodified.scalassh.HostKeyVerifiers.DontVerify
-import com.decodified.scalassh.PasswordProducer.fromString
-import com.decodified.scalassh._
 import com.typesafe.config.ConfigFactory
 import sbt.Def.spaceDelimited
 import sbt.Keys.{baseDirectory, streams}
 import sbt._
-import sbt.util.Logger
 
 import validation.Validation._
+import Phases.connectToRemote
 
 object RemoteDeployPlugin extends AutoPlugin {
 
@@ -25,14 +22,14 @@ object RemoteDeployPlugin extends AutoPlugin {
     )
     val remoteDeployConf: SettingKey[Seq[(String, Option[RemoteConfiguration])]] =
       settingKey[Seq[(String, Option[RemoteConfiguration])]](
-        "Additional deploy configurations coming from the sbt configuration file"
+        "Additional deploy configurations located in the sbt configuration file"
       )
     val remoteDeployArtifacts: TaskKey[Seq[(File, String)]] = taskKey[Seq[(File, String)]](
-      "Artifacts that will be deployed to the remote locations"
+      "Artifacts that will be deployed to all remote locations"
     )
-    val remoteDeployAfterHooks: SettingKey[Seq[SshClient => Unit]] =
-      settingKey[Seq[SshClient => Unit]](
-        "Hook for executing commands on remote locations after deploy"
+    val remoteDeployAfterHooks: SettingKey[Option[Remote => Unit]] =
+      settingKey[Option[Remote => Unit]](
+        "All hooks made of operations to be executed on the remote location after the deploy succeeded"
       )
     val remoteDeploy: InputKey[Unit] = inputKey[Unit](
       "Deploy to the specified remote location. Usage: `remoteDeploy remoteName1 remoteName2`"
@@ -72,7 +69,7 @@ object RemoteDeployPlugin extends AutoPlugin {
     remoteDeployConfFiles := Seq.empty[String],
     remoteDeployConf := Seq.empty[(String, Option[RemoteConfiguration])],
     remoteDeployArtifacts := Seq.empty[(File, String)],
-    remoteDeployAfterHooks := Seq.empty[SshClient => Unit],
+    remoteDeployAfterHooks := None,
     remoteDeploy := {
       val args = spaceDelimited("<first configuration name> <second configuration name> ...").parsed
       val configs =
@@ -113,13 +110,13 @@ object RemoteDeployPlugin extends AutoPlugin {
       val artifacts = remoteDeployArtifacts.value
       val hooks = remoteDeployAfterHooks.value
       if (configs.nonEmpty) {
-        streams.value.log.debug(s"Deploy is being started for server(s): ${configs.keys.mkString(", ")}.")
+        streams.value.log.debug(s"Deploy is being started for remote(s): ${configs.keys.mkString(", ")}.")
         args.foreach { n =>
           streams.value.log.debug(s"Deploying to remote named $n.")
           configs.get(n).flatten match {
             case Some(c) =>
               streams.value.log.debug(s"Configuration for remote $n found.")
-              deploy(c, artifacts, hooks, streams.value.log)
+              connectToRemote(c, artifacts, hooks, streams.value.log)
             case None =>
               streams.value.log.error(s"No configuration for remote $n found, skipping deployment.")
           }
@@ -128,64 +125,4 @@ object RemoteDeployPlugin extends AutoPlugin {
       streams.value.log.debug("The operation has completed.")
     }
   )
-
-  @SuppressWarnings(Array("org.wartremover.warts.ToString"))
-  private def deploy(
-    configuration: RemoteConfiguration,
-    artifacts: Seq[(File, String)],
-    afterHooks: Seq[SshClient => Unit],
-    log: Logger
-  ): Unit = {
-    SSH(
-      configuration.host,
-      HostConfig(
-        login = configuration
-          .privateKeyFile
-          .map(_.toString)
-          .map[SshLogin](k =>
-            configuration
-              .privateKeyPassphrase
-              .map(p => PublicKeyLogin(configuration.user, p, List(k)))
-              .getOrElse(PublicKeyLogin(configuration.user, k))
-          )
-          .getOrElse(
-            PasswordLogin(configuration.user, configuration.password.getOrElse[String](""))
-          ),
-        port = configuration.port,
-        hostKeyVerifier = DontVerify
-      )
-    ) { client =>
-      log.debug(s"Connection with remote ${configuration.host} established, copying artifacts.")
-      artifacts
-        .toList
-        .traverse { case (localFile, remotePath) =>
-          val localPath = localFile.getPath
-          log.debug(s"Copying artifact from local path $localPath to remote path $remotePath.")
-          client
-            .upload(localPath, remotePath)
-            .transform(
-              _ => {
-                log.debug(s"Artifact at path $localPath correctly copied")
-                Success(())
-              },
-              t => {
-                log.error(s"Artifact at local path $localPath copy failed with exception: $t")
-                Failure[Unit](t)
-              }
-            )
-        }
-        .transform(
-          _ => {
-            log.debug("All artifacts were copied correctly, executing after-deployment hooks.")
-            afterHooks.map(f => Try(f(client))).toList.sequence.map(_ => ())
-          },
-          t => Try(log.error(s"While completing the deployment operation, the following exception happened: ${t.toString}"))
-        )
-    } match {
-      case Failure(t) =>
-        log.error(s"While executing the after-deployment hooks, the following exception happened: ${t.toString}")
-      case Success(_) =>
-        log.debug("All after-deployment hooks completed correctly.")
-    }
-  }
 }

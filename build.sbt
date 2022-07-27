@@ -55,14 +55,13 @@ lazy val root = (project in file("."))
     semanticdbVersion := scalafixSemanticdb.revision,
     libraryDependencies ++= Seq(
       typesafeConfig,
-      ssh,
       cats,
-      scalactic
-      // sshj
+      scalactic,
+      sshj
     ),
     scalacOptions ++= Seq(
       "-Ywarn-unused",
       "-Ypartial-unification"
     ),
-    wartremoverErrors ++= Warts.all
+    wartremoverErrors ++= Warts.allBut(Wart.GlobalExecutionContext, Wart.ListUnapply)
   )
