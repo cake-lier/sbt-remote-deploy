@@ -3,8 +3,11 @@ import com.github.dockerjava.api.model.Ports.Binding
 import com.github.dockerjava.core.{DefaultDockerClientConfig, DockerClientImpl}
 import com.github.dockerjava.httpclient5.ApacheDockerHttpClient
 
+import java.io.ByteArrayOutputStream
 import java.nio.file.Files
-import java.time.Duration
+import java.time.{Duration => JDuration}
+import scala.concurrent.duration.Duration
+import scala.concurrent.Await
 
 ThisBuild / version := "1.0.0"
 
@@ -30,8 +33,8 @@ lazy val root = (project in file("."))
           .dockerHost(config.getDockerHost)
           .sslConfig(config.getSSLConfig)
           .maxConnections(100)
-          .connectionTimeout(Duration.ofSeconds(30))
-          .responseTimeout(Duration.ofSeconds(45))
+          .connectionTimeout(JDuration.ofSeconds(30))
+          .responseTimeout(JDuration.ofSeconds(45))
           .build()
       )
       println("Pulling image...")
@@ -61,22 +64,21 @@ lazy val root = (project in file("."))
     remoteDeployArtifacts := Seq(
       (Compile / packageBin).value.getParentFile / (assembly / assemblyJarName).value -> "/root/main.jar"
     ),
-    remoteDeployAfterHooks := Seq(sshClient => {
-      val output = for {
-        result <- sshClient.exec("/root/.local/share/coursier/bin/scala main.jar")
-      } yield result
+    remoteDeployAfterHooks := Some(remote => {
+      val stdout = new ByteArrayOutputStream()
+      val stderr = new ByteArrayOutputStream()
+      val result = Await.result(remote.runPipe("/root/.local/share/coursier/bin/scala main.jar")(stdout, stderr), Duration.Inf)
       if (
-        output.isFailure
-        || output.get.exitCode.isEmpty
-        || output.get.exitCode.get != 0
-        || output.get.stdOutAsString() != "Hello world!\n"
+        result.exitCode.isEmpty
+        || result.exitCode.get != 0
+        || stdout.toString != "Hello world!\n"
       ) {
         println(s"""
-        Command did not return expected result, it returned instead:
-        Exit code: ${output.toOption.flatMap(_.exitCode)}
-        Stdout: ${output.toOption.map(_.stdOutAsString())}
-        Stderr: ${output.toOption.map(_.stdErrAsString())}
-        """.trim)
+            | Command did not return expected result, it returned instead:
+            | Exit code: ${result.exitCode.getOrElse("None")}
+            | Stdout: ${stdout.toString}
+            | Stderr: ${stderr.toString}
+        """.stripMargin)
       } else {
         Files.createFile(baseDirectory.value.toPath.resolve("SUCCESS"))
       }
@@ -89,8 +91,8 @@ lazy val root = (project in file("."))
           .dockerHost(config.getDockerHost)
           .sslConfig(config.getSSLConfig)
           .maxConnections(100)
-          .connectionTimeout(Duration.ofSeconds(30))
-          .responseTimeout(Duration.ofSeconds(45))
+          .connectionTimeout(JDuration.ofSeconds(30))
+          .responseTimeout(JDuration.ofSeconds(45))
           .build()
       )
       println("Stopping container...")
