@@ -27,9 +27,13 @@ object RemoteDeployPlugin extends AutoPlugin {
     val remoteDeployArtifacts: TaskKey[Seq[(File, String)]] = taskKey[Seq[(File, String)]](
       "Artifacts that will be deployed to all remote locations"
     )
+    val remoteDeployBeforeHooks: SettingKey[Option[Remote => Unit]] =
+      settingKey[Option[Remote => Unit]](
+        "All hooks consisting of operations to be executed on the remote location before the deploy"
+      )
     val remoteDeployAfterHooks: SettingKey[Option[Remote => Unit]] =
       settingKey[Option[Remote => Unit]](
-        "All hooks made of operations to be executed on the remote location after the deploy succeeded"
+        "All hooks consisting of operations to be executed on the remote location after the deploy"
       )
     val remoteDeploy: InputKey[Unit] = inputKey[Unit](
       "Deploy to the specified remote location. Usage: `remoteDeploy remoteName1 remoteName2`"
@@ -69,6 +73,7 @@ object RemoteDeployPlugin extends AutoPlugin {
     remoteDeployConfFiles := Seq.empty[String],
     remoteDeployConf := Seq.empty[(String, Option[RemoteConfiguration])],
     remoteDeployArtifacts := Seq.empty[(File, String)],
+    remoteDeployBeforeHooks := None,
     remoteDeployAfterHooks := None,
     remoteDeploy := {
       val args = spaceDelimited("<first configuration name> <second configuration name> ...").parsed
@@ -108,7 +113,8 @@ object RemoteDeployPlugin extends AutoPlugin {
           ) ++ remoteDeployConf.value
       streams.value.log.debug(s"${configs.size} configuration(s) loaded.")
       val artifacts = remoteDeployArtifacts.value
-      val hooks = remoteDeployAfterHooks.value
+      val beforeHooks = remoteDeployBeforeHooks.value
+      val afterHooks = remoteDeployAfterHooks.value
       if (configs.nonEmpty) {
         streams.value.log.debug(s"Deploy is being started for remote(s): ${configs.keys.mkString(", ")}.")
         args.foreach { n =>
@@ -116,7 +122,7 @@ object RemoteDeployPlugin extends AutoPlugin {
           configs.get(n).flatten match {
             case Some(c) =>
               streams.value.log.debug(s"Configuration for remote $n found.")
-              connectToRemote(c, artifacts, hooks, streams.value.log)
+              connectToRemote(c, artifacts, beforeHooks, afterHooks, streams.value.log)
             case None =>
               streams.value.log.error(s"No configuration for remote $n found, skipping deployment.")
           }

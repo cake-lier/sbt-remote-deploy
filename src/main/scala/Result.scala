@@ -13,12 +13,8 @@ trait Result extends {
 
 object Result {
 
-  class ResultImpl(command: Session.Command) extends Result {
+  private final case class ResultImpl(exitCode: Option[Int], errorMessage: Option[String]) extends Result
 
-    override val exitCode: Option[Int] = Try(command.getExitStatus.intValue()).toOption
-
-    override val errorMessage: Option[String] = Option(command.getExitErrorMessage)
-  }
-
-  def apply(command: Session.Command): Result = new ResultImpl(command)
+  def apply(command: Session.Command): Result =
+    ResultImpl(Try(command.getExitStatus.intValue()).toOption, Option(command.getExitErrorMessage))
 }
