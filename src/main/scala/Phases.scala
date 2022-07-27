@@ -15,6 +15,7 @@ object Phases {
   def connectToRemote(
     configuration: RemoteConfiguration,
     artifacts: Seq[(File, String)],
+    beforeHooks: Option[Remote => Unit],
     afterHooks: Option[Remote => Unit],
     log: Logger
   ): Unit = {
@@ -38,15 +39,15 @@ object Phases {
                 client.authPublickey(configuration.user, f.toString)
               )(p => client.authPublickey(configuration.user, client.loadKeys(f.toString, p)))
           )
-        log.debug(s"Connection with remote ${configuration.host} established, copying artifacts.")
+        log.debug(s"Connection with remote ${configuration.host} established, executing before-deployment hooks.")
+        runHooks(client, beforeHooks)
+        log.debug(s"Before-deployment hooks executed, copying artifacts.")
         copyArtifacts(client, artifacts, log) match {
           case Failure(_) =>
             log.error("The copy of the remaining files has been interrupted due to the exception thrown.")
           case Success(_) =>
             log.debug("All artifacts were copied correctly, executing after-deployment hooks.")
-            val session = client.startSession
-            afterHooks.foreach(_.apply(Remote(session)))
-            session.close()
+            runHooks(client, afterHooks)
         }
       } finally {
         client.disconnect()
@@ -55,6 +56,16 @@ object Phases {
       case t: Throwable => log.error(s"The following exception happened which interrupted the execution: $t")
     }
   }
+
+  def runHooks(client: SSHClient, hooks: Option[Remote => Unit]): Unit =
+    hooks.foreach(f => {
+      val session = client.startSession
+      try {
+        f(Remote(session))
+      } finally {
+        session.close()
+      }
+    })
 
   def copyArtifacts(client: SSHClient, artifacts: Seq[(File, String)], log: Logger): Try[Unit] = {
     @tailrec
