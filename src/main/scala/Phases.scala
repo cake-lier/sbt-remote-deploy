@@ -20,7 +20,10 @@ object Phases {
   ): Unit = {
     val client = new SSHClient
     try {
-      client.loadKnownHosts()
+      Try(client.loadKnownHosts()) match {
+        case Failure(t) => log.debug(s"Could not load known hosts, operation failed with exception: $t")
+        case Success(_) => log.debug("Known hosts successfully loaded")
+      }
       client.addHostKeyVerifier(new PromiscuousVerifier())
       client.connect(configuration.host, configuration.port)
       try {
