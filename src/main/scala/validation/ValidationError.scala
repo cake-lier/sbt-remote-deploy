@@ -76,6 +76,26 @@ private[cakelier] object ValidationError {
       "The private key file value must be a path in the filesystem to an existing, readable file."
   }
 
+  /** Error that gets raised when the fingerprint value is specified with an invalid format.
+    *
+    * A [[RemoteConfiguration]], for being valid, needs that, if the fingerprint value is specified, this one is in an MD5
+    * colon-delimited format (16 hexadecimal octets, delimited by a colon), or in a Base64 encoded format for SHA-1 or SHA-256
+    * fingerprints. The MD5 format can be prefixed, but it is not mandatory, with the string "MD5:", while the SHA-1 and SHA-256
+    * formatted fingerprints must be prefixed respectively with "SHA1:" and "SHA256:" strings. The terminal "=" symbols are
+    * optional. This is because these three are the only supported formats for encoding fingerprints. If neither of those formats
+    * are used, this error gets raised.
+    */
+  object InvalidFingerPrintValue extends ValidationError {
+
+    override val message: String =
+      """
+        |The fingerprint value must be a string in an MD5 colon-delimited format (16 hexadecimal octets, delimited by a colon), 
+        |or in a Base64 encoded format for SHA-1 or SHA-256 fingerprints. The MD5 format can be prefixed, but it is not 
+        |mandatory, with the string "MD5:", while the SHA-1 and SHA-256 formatted fingerprints must be prefixed 
+        |respectively with "SHA1:" and "SHA256:" strings. The terminal "=" symbols are optional.
+        |""".stripMargin
+  }
+
   /** Error that gets raised when a field value is missing or invalid in the configuration file.
     *
     * A configuration file containing a [[RemoteConfiguration]], for being valid, needs that some fields must be present and
