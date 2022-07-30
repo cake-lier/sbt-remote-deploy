@@ -1,7 +1,11 @@
 package io.github.cakelier
 
 import java.nio.file.Path
-import scala.util.matching.Regex
+
+import cats.syntax.all._
+
+import validation.ValidationError
+import validation.ValidationError._
 
 /** A configuration for accessing a remote location.
   *
@@ -126,7 +130,7 @@ private[cakelier] object RemoteConfiguration {
       *   a [[scala.Some]] containing a new instance of the [[RemoteConfiguration]] trait containing the supplied parameters, if
       *   those were valid, a [[scala.None]] otherwise
       */
-    def create: Option[RemoteConfiguration]
+    def create: Either[Seq[ValidationError], RemoteConfiguration]
   }
 
   /** Companion object to its [[Factory]] trait, containing its factory method. */
@@ -141,41 +145,61 @@ private[cakelier] object RemoteConfiguration {
       privateKeyFile: Option[Path],
       privateKeyPassphrase: Option[String]
     ) extends Factory {
-      private val hostnameRegex: Regex =
-        "^(?:(?:[a-zA-Z\\d]|[a-zA-Z\\d][a-zA-Z\\d\\-]*[a-zA-Z\\d])\\.)*(?:[A-Za-z\\d]|[A-Za-z\\d][A-Za-z\\d\\-]*[A-Za-z\\d])$".r
-      private val ipRegex: Regex =
-        "^(?:(?:\\d|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])\\.){3}(?:\\d|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])$".r
 
-      override def host(host: String): Factory = host match {
-        case hostnameRegex() | ipRegex() => copy(host = Some(host))
-        case _                           => this
-      }
+      override def host(host: String): Factory = copy(host = Some(host))
 
-      override def port(port: Int): Factory = port match {
-        case v if v >= 1 && v <= 65535 => copy(port = port)
-        case _                         => this
-      }
+      override def port(port: Int): Factory = copy(port = port)
 
-      private val userRegex = "^\\S+$".r
-
-      override def user(user: String): Factory = user match {
-        case userRegex() => copy(user = Some(user))
-        case _           => this
-      }
+      override def user(user: String): Factory = copy(user = Some(user))
 
       override def password(password: Option[String]): Factory = copy(password = password)
 
-      override def privateKeyFile(privateKeyFile: Option[Path]): Factory =
-        copy(privateKeyFile = privateKeyFile.filter(p => p.toFile.exists && p.toFile.canRead))
+      override def privateKeyFile(privateKeyFile: Option[Path]): Factory = copy(privateKeyFile = privateKeyFile)
 
       override def privateKeyPassphrase(privateKeyPassphrase: Option[String]): Factory =
         copy(privateKeyPassphrase = privateKeyPassphrase)
 
-      override def create: Option[RemoteConfiguration] = {
-        for {
-          h <- host
-          u <- user
-        } yield RemoteConfigurationImpl(h, port, u, password, privateKeyFile, privateKeyPassphrase)
+      @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Nothing"))
+      override def create: Either[Seq[ValidationError], RemoteConfiguration] = {
+        val hostnameRegex =
+          "^(?:(?:[a-zA-Z\\d]|[a-zA-Z\\d][a-zA-Z\\d\\-]*[a-zA-Z\\d])\\.)*(?:[A-Za-z\\d]|[A-Za-z\\d][A-Za-z\\d\\-]*[A-Za-z\\d])$".r
+        val ipRegex =
+          "^(?:(?:\\d|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])\\.){3}(?:\\d|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])$".r
+        val userRegex = "^\\S+$".r
+        (
+          host
+            .toValid(MissingHostValue)
+            .leftWiden[ValidationError]
+            .toValidatedNel
+            .andThen((s: String) =>
+              s match {
+                case h @ (hostnameRegex() | ipRegex()) => h.validNel[ValidationError]
+                case _                                 => InvalidHostValue.invalidNel[String]
+              }
+            ),
+          port.validNel[ValidationError].andThen {
+            case p if p >= 1 && p <= 65535 => p.validNel[ValidationError]
+            case _                         => InvalidPortValue.invalidNel[Int]
+          },
+          user
+            .toValid(MissingUserValue)
+            .leftWiden[ValidationError]
+            .toValidatedNel
+            .andThen((s: String) =>
+              s match {
+                case u @ userRegex() => u.validNel[ValidationError]
+                case _               => InvalidUserValue.invalidNel[String]
+              }
+            ),
+          privateKeyFile.validNel[ValidationError].andThen {
+            case f if f.forall(p => p.toFile.exists && p.toFile.canRead) => f.validNel[ValidationError]
+            case _ =>
+              InvalidPrivateKeyFileValue.invalidNel[Option[Path]]
+          }
+        )
+          .mapN((h, p, u, f) => RemoteConfigurationImpl(h, p, u, password, f, privateKeyPassphrase))
+          .toEither
+          .leftMap(_.toList)
       }
     }
 

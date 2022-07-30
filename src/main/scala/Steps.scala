@@ -63,7 +63,7 @@ private[cakelier] object Steps {
           )
         log.debug(s"Connection with remote ${configuration.host} established, executing before-deployment hooks.")
         runHook(client, beforeHook)
-        log.debug(s"Before-deployment hooks executed, copying artifacts.")
+        log.debug("Before-deployment hooks executed, copying artifacts.")
         copyArtifacts(client, artifacts, log) match {
           case Failure(_) =>
             log.error("The copy of the remaining files has been interrupted due to the exception thrown.")
