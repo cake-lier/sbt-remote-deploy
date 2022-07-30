@@ -76,6 +76,16 @@ private[cakelier] object ValidationError {
       "The private key file value must be a path in the filesystem to an existing, readable file."
   }
 
+  /** Error that gets raised when the "verify identity" field value is specified with an incorrect format.
+    *
+    * A configuration file containing a [[RemoteConfiguration]], for being valid, needs that, if a "verify identity" field value
+    * is specified, this one is a boolean. If this is not the case, this error gets raised.
+    */
+  object InvalidVerifyIdentityValue extends ValidationError {
+
+    override val message: String = "The \"verify identity\" parameter must be a boolean."
+  }
+
   /** Error that gets raised when the fingerprint value is specified with an invalid format.
     *
     * A [[RemoteConfiguration]], for being valid, needs that, if the fingerprint value is specified, this one is in an MD5
@@ -85,7 +95,7 @@ private[cakelier] object ValidationError {
     * optional. This is because these three are the only supported formats for encoding fingerprints. If neither of those formats
     * are used, this error gets raised.
     */
-  object InvalidFingerPrintValue extends ValidationError {
+  object InvalidFingerprintValue extends ValidationError {
 
     override val message: String =
       """
