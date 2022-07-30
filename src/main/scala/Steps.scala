@@ -1,12 +1,13 @@
 package io.github.cakelier
 
+import java.io.File
+
+import scala.annotation.tailrec
+import scala.util._
+
 import net.schmizz.sshj.SSHClient
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier
 import sbt.util.Logger
-
-import java.io.File
-import scala.annotation.tailrec
-import scala.util._
 
 /** Collection of methods for executing the steps composing this SBT plugin.
   *
