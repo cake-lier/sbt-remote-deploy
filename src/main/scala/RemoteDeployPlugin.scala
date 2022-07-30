@@ -12,29 +12,42 @@ import sbt.Keys.{baseDirectory, streams}
 import sbt._
 
 import validation.Validation._
-import Phases.connectToRemote
+import Steps.connectToRemote
 
+/** The SBT plugin, the main entrypoint to this project.
+  *
+  * This object represents the SBT plugin, containing its keys to be used in a build file, the DSL to specify a configuration
+  * through code, and the steps taken by the plugin before executing its proper behavior, like parsing and validating the
+  * configurations.
+  */
 object RemoteDeployPlugin extends AutoPlugin {
 
+  /** The "autoImport" object, containing all things that must be auto-imported by the plugin when activated. */
   object autoImport {
+
     val remoteDeployConfFiles: SettingKey[Seq[String]] = settingKey[Seq[String]](
       "Deploy configuration file paths located in project root directory"
     )
+
     val remoteDeployConf: SettingKey[Seq[(String, Option[RemoteConfiguration])]] =
       settingKey[Seq[(String, Option[RemoteConfiguration])]](
         "Additional deploy configurations located in the sbt configuration file"
       )
+
     val remoteDeployArtifacts: TaskKey[Seq[(File, String)]] = taskKey[Seq[(File, String)]](
       "Artifacts that will be deployed to all remote locations"
     )
-    val remoteDeployBeforeHooks: SettingKey[Option[Remote => Unit]] =
+
+    val remoteDeployBeforeHook: SettingKey[Option[Remote => Unit]] =
       settingKey[Option[Remote => Unit]](
         "All hooks consisting of operations to be executed on the remote location before the deploy"
       )
-    val remoteDeployAfterHooks: SettingKey[Option[Remote => Unit]] =
+
+    val remoteDeployAfterHook: SettingKey[Option[Remote => Unit]] =
       settingKey[Option[Remote => Unit]](
         "All hooks consisting of operations to be executed on the remote location after the deploy"
       )
+
     val remoteDeploy: InputKey[Unit] = inputKey[Unit](
       "Deploy to the specified remote location. Usage: `remoteDeploy remoteName1 remoteName2`"
     )
@@ -42,22 +55,75 @@ object RemoteDeployPlugin extends AutoPlugin {
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     private var configuration: RemoteConfiguration.Factory = RemoteConfiguration()
 
+    /** Contains all methods which are part of the DSL used for specifying a [[RemoteConfiguration]] via code.
+      *
+      * This object contains all methods which are part of a DSL which has been introduced in this plugin for defining a
+      * [[RemoteConfiguration]] via code. This means that the DSL must allow to specify the hostname and the username of the
+      * remote location to which connect, the port on which the remote location listens for SSH connections, the password or the
+      * private key file and its possible passphrase to be used in the authentication phase.
+      */
     object has {
+
+      /** Allows to specify the hostname of the remote location which the [[RemoteConfiguration]] to create refers to.
+        *
+        * @param host
+        *   the hostname of the remote location
+        */
       def host(host: String): Unit = configuration = configuration.host(host)
 
+      /** Allows to specify the port of the remote location which the [[RemoteConfiguration]] to create refers to.
+        *
+        * @param port
+        *   the port behind which the remote location listens for SSH connections
+        */
       def port(port: Int): Unit = configuration = configuration.port(port)
 
+      /** Allows to specify the username used in the remote location which the [[RemoteConfiguration]] to create refers to.
+        *
+        * @param user
+        *   the username used in the remote location
+        */
       def user(user: String): Unit = configuration = configuration.user(user)
 
+      /** The password used in the authentication phase of the SSH connection to the remote location which the
+        * [[RemoteConfiguration]] to create refers to.
+        *
+        * @param password
+        *   the password to be used in the authentication phase of the SSH connection
+        */
       def password(password: String): Unit = configuration = configuration.password(Some(password))
 
+      /** The path to the private key file used in the authentication phase of the SSH connection to the remote location which the
+        * [[RemoteConfiguration]] to create refers to.
+        *
+        * @param privateKeyFile
+        *   the path to the private key to be used in the authentication phase of the SSH connection
+        */
       def privateKeyFile(privateKeyFile: String): Unit = configuration =
         configuration.privateKeyFile(Some(Path.of(privateKeyFile)))
 
+      /** The passphrase used to encrypt the private key file used in the authentication phase of the SSH connection to the remote
+        * location which the [[RemoteConfiguration]] to create refers to.
+        *
+        * @param privateKeyPassphrase
+        *   the passphrase used to encrypt the private key to be used in the authentication phase of the SSH connection
+        */
       def privateKeyPassphrase(privateKeyPassphrase: String): Unit =
         configuration = configuration.privateKeyPassphrase(Some(privateKeyPassphrase))
     }
 
+    /** Allows to use the DSL for specifying a [[RemoteConfiguration]]. With its first parameter it allows to specify the name of
+      * the configuration and with the second provides a place to use the DSL methods to specify all the parameters which compose
+      * the configuration.
+      *
+      * @param withName
+      *   the name of the [[RemoteConfiguration]] to create
+      * @param body
+      *   the parameter to be used as a place to call the DSL methods
+      * @return
+      *   a new pair made of the name of a [[RemoteConfiguration]] and a [[scala.Option]] containing the [[RemoteConfiguration]]
+      *   itself, if all the parameters were valid, a [[scala.None]] otherwise
+      */
     def remoteConfiguration(withName: String)(body: => Unit): (String, Option[RemoteConfiguration]) = {
       body
       val tuple = withName -> configuration.create
@@ -73,8 +139,8 @@ object RemoteDeployPlugin extends AutoPlugin {
     remoteDeployConfFiles := Seq.empty[String],
     remoteDeployConf := Seq.empty[(String, Option[RemoteConfiguration])],
     remoteDeployArtifacts := Seq.empty[(File, String)],
-    remoteDeployBeforeHooks := None,
-    remoteDeployAfterHooks := None,
+    remoteDeployBeforeHook := None,
+    remoteDeployAfterHook := None,
     remoteDeploy := {
       val args = spaceDelimited("<first configuration name> <second configuration name> ...").parsed
       val configs =
@@ -113,8 +179,8 @@ object RemoteDeployPlugin extends AutoPlugin {
           ) ++ remoteDeployConf.value
       streams.value.log.debug(s"${configs.size} configuration(s) loaded.")
       val artifacts = remoteDeployArtifacts.value
-      val beforeHooks = remoteDeployBeforeHooks.value
-      val afterHooks = remoteDeployAfterHooks.value
+      val beforeHooks = remoteDeployBeforeHook.value
+      val afterHooks = remoteDeployAfterHook.value
       if (configs.nonEmpty) {
         streams.value.log.debug(s"Deploy is being started for remote(s): ${configs.keys.mkString(", ")}.")
         args.foreach { n =>
