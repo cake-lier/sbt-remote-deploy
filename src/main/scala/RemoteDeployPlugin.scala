@@ -13,6 +13,7 @@ import sbt._
 
 import validation.Validation._
 import Steps.connectToRemote
+import validation.ValidationError
 
 /** The SBT plugin, the main entrypoint to this project.
   *
@@ -29,8 +30,8 @@ object RemoteDeployPlugin extends AutoPlugin {
       "Deploy configuration file paths located in project root directory"
     )
 
-    val remoteDeployConf: SettingKey[Seq[(String, Option[RemoteConfiguration])]] =
-      settingKey[Seq[(String, Option[RemoteConfiguration])]](
+    val remoteDeployConf: SettingKey[Seq[(String, Either[Seq[ValidationError], RemoteConfiguration])]] =
+      settingKey[Seq[(String, Either[Seq[ValidationError], RemoteConfiguration])]](
         "Additional deploy configurations located in the sbt configuration file"
       )
 
@@ -124,7 +125,7 @@ object RemoteDeployPlugin extends AutoPlugin {
       *   a new pair made of the name of a [[RemoteConfiguration]] and a [[scala.Option]] containing the [[RemoteConfiguration]]
       *   itself, if all the parameters were valid, a [[scala.None]] otherwise
       */
-    def remoteConfiguration(withName: String)(body: => Unit): (String, Option[RemoteConfiguration]) = {
+    def remoteConfiguration(withName: String)(body: => Unit): (String, Either[Seq[ValidationError], RemoteConfiguration]) = {
       body
       val tuple = withName -> configuration.create
       configuration = RemoteConfiguration()
@@ -137,7 +138,7 @@ object RemoteDeployPlugin extends AutoPlugin {
   @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Nothing"))
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
     remoteDeployConfFiles := Seq.empty[String],
-    remoteDeployConf := Seq.empty[(String, Option[RemoteConfiguration])],
+    remoteDeployConf := Seq.empty[(String, Either[Seq[ValidationError], RemoteConfiguration])],
     remoteDeployArtifacts := Seq.empty[(File, String)],
     remoteDeployBeforeHook := None,
     remoteDeployAfterHook := None,
@@ -161,7 +162,7 @@ object RemoteDeployPlugin extends AutoPlugin {
             configurationFile
           })
           .zipWithIndex
-          .foldLeft(Map.empty[String, Option[RemoteConfiguration]])((m, c) =>
+          .foldLeft(Map.empty[String, Either[Seq[ValidationError], RemoteConfiguration]])((m, c) =>
             m ++
               Try(c._1.getConfig("remotes"))
                 .map(r =>
@@ -169,12 +170,12 @@ object RemoteDeployPlugin extends AutoPlugin {
                     .keySet
                     .asScala
                     .toSeq
-                    .map(n => (n, validateConfiguration(Try(r.getConfig(n)), n, streams.value.log)))
+                    .map(n => (n, validateConfiguration(Try(r.getConfig(n)), n)))
                 )
                 .toOption
                 .getOrElse {
                   streams.value.log.warn(s"Unable to parse configuration file #${c._2}, check if its format is correct.")
-                  Seq.empty[(String, Option[RemoteConfiguration])]
+                  Seq.empty[(String, Either[Seq[ValidationError], RemoteConfiguration])]
                 }
           ) ++ remoteDeployConf.value
       streams.value.log.debug(s"${configs.size} configuration(s) loaded.")
@@ -185,10 +186,15 @@ object RemoteDeployPlugin extends AutoPlugin {
         streams.value.log.debug(s"Deploy is being started for remote(s): ${configs.keys.mkString(", ")}.")
         args.foreach { n =>
           streams.value.log.debug(s"Deploying to remote named $n.")
-          configs.get(n).flatten match {
+          configs.get(n) match {
             case Some(c) =>
               streams.value.log.debug(s"Configuration for remote $n found.")
-              connectToRemote(c, artifacts, beforeHooks, afterHooks, streams.value.log)
+              c match {
+                case Left(e) =>
+                  streams.value.log.error(s"Configuration for remote $n was parsed with errors, the errors will be shown below:")
+                  e.foreach(v => streams.value.log.error("\t" + v.message))
+                case Right(r) => connectToRemote(r, artifacts, beforeHooks, afterHooks, streams.value.log)
+              }
             case None =>
               streams.value.log.error(s"No configuration for remote $n found, skipping deployment.")
           }
