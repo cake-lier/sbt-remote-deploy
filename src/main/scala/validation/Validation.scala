@@ -23,15 +23,18 @@ private[cakelier] object Validation {
   /* The module containing all the field validators. */
   private object FieldValidators {
 
+    /* Type representing the generic result of validating a field which contains values of type A. */
     private type Validation[A] = ValidatedNel[ValidationError, A]
 
-    private def validateRequiredStringField(config: Config, name: String, error: ValidationError): Validation[String] =
+    /* Validates a required string field. */
+    private def validateRequiredStringField(config: Config, name: String): Validation[String] =
       Try(config.getString(name))
         .toValidated
-        .leftMap(_ => error)
+        .leftMap(_ => MissingOrInvalidStringFieldValue(name))
         .leftWiden[ValidationError]
         .toValidatedNel
 
+    /* Validates an optional string field. */
     private def validateOptionalStringField(config: Config, name: String, error: ValidationError): Validation[Option[String]] =
       (if (config.root().containsKey(name)) Try(Some(config.getString(name))) else Success(None))
         .toValidated
@@ -41,7 +44,7 @@ private[cakelier] object Validation {
 
     /* Validates the host field. */
     def validateHost(config: Config): Validation[String] =
-      validateRequiredStringField(config, "host", MissingOrInvalidHostValue)
+      validateRequiredStringField(config, "host")
 
     /* Validates the port field. */
     def validatePort(config: Config): Validation[Option[Int]] =
@@ -53,7 +56,7 @@ private[cakelier] object Validation {
 
     /* Validates the user field. */
     def validateUser(config: Config): Validation[String] =
-      validateRequiredStringField(config, "user", MissingOrInvalidUserValue)
+      validateRequiredStringField(config, "user")
 
     /* Validates the password field. */
     def validatePassword(config: Config): Validation[Option[String]] =
@@ -71,15 +74,16 @@ private[cakelier] object Validation {
   import validation.Validation.FieldValidators._
 
   /** Validates a [[Config]] instance containing a possible [[RemoteConfiguration]] combining all the fields validators defined
-    * inside this object.
+    * inside this object. This method will return all [[ValidationError]]s encountered during the [[Config]] parsing if it did not
+    * contain a valid [[RemoteConfiguration]].
     *
     * @param configuration
     *   the [[Config]] instance to validate, if no exceptions were thrown while reading it, the corresponding exception otherwise
     * @param name
     *   the name of the configuration to validate
     * @return
-    *   a [[scala.Option]] containing the [[RemoteConfiguration]] contained inside the given [[Config]] instance, if valid, a
-    *   [[scala.None]] otherwise
+    *   a [[scala.Either]] containing the [[RemoteConfiguration]] contained inside the given [[Config]] instance, if this was
+    *   valid, a [[scala.Seq]] with all [[ValidationError]]s encountered while parsing the [[Config]] instance otherwise
     */
   @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Nothing"))
   def validateConfiguration(

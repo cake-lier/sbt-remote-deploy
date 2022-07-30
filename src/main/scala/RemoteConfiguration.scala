@@ -52,10 +52,10 @@ private[cakelier] object RemoteConfiguration {
     *
     * This entity represents an abstract factory for creating new [[RemoteConfiguration]] instances. It regulates how values can
     * be specified and what qualifies as a valid state for the given instance. Its [[RemoteConfiguration.Factory.create]] method
-    * will return a [[scala.None]] in case the user tries to complete the creation of a [[RemoteConfiguration]] that is not in a
-    * valid state. For this to be true, both the hostname and the username must be specified and the first must be a valid
-    * hostname or IP address, while the second must be a string without spaces. The port must be a value in the port range, so
-    * between 1 and 65535 included. The [[java.nio.file.Path]] must be to a file that exists and can be read. Instances of this
+    * will return all encountered errors in case the user tries to complete the creation of a [[RemoteConfiguration]] that is not
+    * in a valid state. For being in a valid state, both the hostname and the username must be specified and the first must be a
+    * valid hostname or IP address, while the second must be a string without spaces. The port must be a value in the port range,
+    * so between 1 and 65535 included. The [[java.nio.file.Path]] must be to a file that exists and can be read. Instances of this
     * trait must be constructed through its companion object.
     *
     * @see
@@ -124,11 +124,12 @@ private[cakelier] object RemoteConfiguration {
     def privateKeyPassphrase(privateKeyPassphrase: Option[String]): Factory
 
     /** Creates a new instance of the [[RemoteConfiguration]] trait, if all configuration parameters were correctly specified and
-      * the factory is in a valid state, otherwise it will return a [[scala.None]].
+      * the factory is in a valid state, otherwise it will return all the encountered [[ValidationError]]s while creating the new
+      * instance.
       *
       * @return
-      *   a [[scala.Some]] containing a new instance of the [[RemoteConfiguration]] trait containing the supplied parameters, if
-      *   those were valid, a [[scala.None]] otherwise
+      *   a [[scala.Either]] containing a new instance of the [[RemoteConfiguration]] trait made from the supplied parameters, if
+      *   those were valid, a [[scala.Seq]] with all encountered [[ValidationError]]s otherwise
       */
     def create: Either[Seq[ValidationError], RemoteConfiguration]
   }
@@ -168,7 +169,7 @@ private[cakelier] object RemoteConfiguration {
         val userRegex = "^\\S+$".r
         (
           host
-            .toValid(MissingHostValue)
+            .toValid(MissingFieldValue("host"))
             .leftWiden[ValidationError]
             .toValidatedNel
             .andThen((s: String) =>
@@ -182,7 +183,7 @@ private[cakelier] object RemoteConfiguration {
             case _                         => InvalidPortValue.invalidNel[Int]
           },
           user
-            .toValid(MissingUserValue)
+            .toValid(MissingFieldValue("user"))
             .leftWiden[ValidationError]
             .toValidatedNel
             .andThen((s: String) =>
@@ -193,8 +194,7 @@ private[cakelier] object RemoteConfiguration {
             ),
           privateKeyFile.validNel[ValidationError].andThen {
             case f if f.forall(p => p.toFile.exists && p.toFile.canRead) => f.validNel[ValidationError]
-            case _ =>
-              InvalidPrivateKeyFileValue.invalidNel[Option[Path]]
+            case _                                                       => InvalidPrivateKeyFileValue.invalidNel[Option[Path]]
           }
         )
           .mapN((h, p, u, f) => RemoteConfigurationImpl(h, p, u, password, f, privateKeyPassphrase))

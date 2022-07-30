@@ -41,12 +41,12 @@ object RemoteDeployPlugin extends AutoPlugin {
 
     val remoteDeployBeforeHook: SettingKey[Option[Remote => Unit]] =
       settingKey[Option[Remote => Unit]](
-        "All hooks consisting of operations to be executed on the remote location before the deploy"
+        "A hook consisting of commands to be executed on the remote locations before the deploy"
       )
 
     val remoteDeployAfterHook: SettingKey[Option[Remote => Unit]] =
       settingKey[Option[Remote => Unit]](
-        "All hooks consisting of operations to be executed on the remote location after the deploy"
+        "A hook consisting of commands to be executed on the remote locations after the deploy"
       )
 
     val remoteDeploy: InputKey[Unit] = inputKey[Unit](
@@ -114,16 +114,17 @@ object RemoteDeployPlugin extends AutoPlugin {
     }
 
     /** Allows to use the DSL for specifying a [[RemoteConfiguration]]. With its first parameter it allows to specify the name of
-      * the configuration and with the second provides a place to use the DSL methods to specify all the parameters which compose
-      * the configuration.
+      * the [[RemoteConfiguration]] and with the second provides a place to use the DSL methods to specify all the parameters
+      * which compose the [[RemoteConfiguration]].
       *
       * @param withName
       *   the name of the [[RemoteConfiguration]] to create
       * @param body
       *   the parameter to be used as a place to call the DSL methods
       * @return
-      *   a new pair made of the name of a [[RemoteConfiguration]] and a [[scala.Option]] containing the [[RemoteConfiguration]]
-      *   itself, if all the parameters were valid, a [[scala.None]] otherwise
+      *   a new pair made of the name of a [[RemoteConfiguration]] and a [[scala.Either]] containing the [[RemoteConfiguration]]
+      *   itself, if all the parameters were valid, a [[scala.Seq]] with all [[ValidationError]]s encountered while validating the
+      *   possible [[RemoteConfiguration]] otherwise
       */
     def remoteConfiguration(withName: String)(body: => Unit): (String, Either[Seq[ValidationError], RemoteConfiguration]) = {
       body
