@@ -111,6 +111,14 @@ object RemoteDeployPlugin extends AutoPlugin {
         */
       def privateKeyPassphrase(privateKeyPassphrase: String): Unit =
         configuration = configuration.privateKeyPassphrase(Some(privateKeyPassphrase))
+
+      /** The fingerprint to be used for identifying the remote location which the [[RemoteConfiguration]] to create refers to.
+        *
+        * @param fingerprint
+        *   to be used for identifying the remote location
+        */
+      def fingerprint(fingerprint: String): Unit =
+        configuration = configuration.fingerprint(Some(fingerprint))
     }
 
     /** Allows to use the DSL for specifying a [[RemoteConfiguration]]. With its first parameter it allows to specify the name of

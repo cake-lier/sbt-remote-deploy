@@ -47,7 +47,7 @@ private[cakelier] object Steps {
         case Failure(t) => log.debug(s"Could not load known hosts, operation failed with exception: $t")
         case Success(_) => log.debug("Known hosts successfully loaded")
       }
-      client.addHostKeyVerifier(new PromiscuousVerifier())
+      configuration.fingerprint.fold(client.addHostKeyVerifier(new PromiscuousVerifier()))(client.addHostKeyVerifier)
       client.connect(configuration.host, configuration.port)
       try {
         configuration

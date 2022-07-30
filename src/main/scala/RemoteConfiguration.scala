@@ -15,8 +15,9 @@ import validation.ValidationError._
   * be performed, the [[java.nio.file.Path]] to the file containing the private key, if a public key-based authentication is
   * required. Moreover, a passphrase can be specified for the private key, if it has been encrypted. If both the password and the
   * [[java.nio.file.Path]] to the private key were specified, the last one takes precedence and the first one is ignored. If
-  * neither is specified, an empty password will be supplied. Instances of this trait must be constructed through its companion
-  * object.
+  * neither is specified, an empty password will be supplied. Last, a fingerprint can be specified for verifying the identity of
+  * the remote location to which connecting and fail if not corresponding. Instances of this trait must be constructed through its
+  * companion object.
   */
 trait RemoteConfiguration {
 
@@ -43,6 +44,11 @@ trait RemoteConfiguration {
     * authentication process, if present, [[scala.None]] if absent.
     */
   val privateKeyPassphrase: Option[String]
+
+  /** Returns a [[scala.Some]] containing the fingerprint to be used for identifying the remote host to which connecting, if
+    * present, a [[scala.None]] if absent.
+    */
+  val fingerprint: Option[String]
 }
 
 /** Companion object to the [[RemoteConfiguration]] trait, containing its factory. */
@@ -64,7 +70,7 @@ private[cakelier] object RemoteConfiguration {
   trait Factory {
 
     /** Sets the hostname value for the [[RemoteConfiguration]] to be created. The provided hostname must be a valid hostname or a
-      * valid IP address. If an invalid value is provided, nothing happens.
+      * valid IP address.
       *
       * @param host
       *   the hostname to be set
@@ -74,7 +80,7 @@ private[cakelier] object RemoteConfiguration {
     def host(host: String): Factory
 
     /** Sets the port value for the [[RemoteConfiguration]] to be created. The provided port value must be valid, so it must be
-      * between 1 and 65535 included. If an invalid value is provided, nothing happens.
+      * between 1 and 65535 included.
       *
       * @param port
       *   the port to be set
@@ -84,7 +90,7 @@ private[cakelier] object RemoteConfiguration {
     def port(port: Int): Factory
 
     /** Sets the user value for the [[RemoteConfiguration]] to be created. The provided user value must be valid, so it must be a
-      * nonempty string without any whitespace. If an invalid value is provided, nothing happens.
+      * nonempty string without any whitespace.
       *
       * @param user
       *   the user to be set
@@ -107,7 +113,8 @@ private[cakelier] object RemoteConfiguration {
       * nothing happens.
       *
       * @param privateKeyFile
-      *   a [[scala.Option]] containing the [[java.nio.file.Path]] to the private key file to be set
+      *   a [[scala.Option]] containing the [[java.nio.file.Path]] to the private key file to be set, or a [[scala.None]] if no
+      *   private key file is to be set
       * @return
       *   this [[Factory]] with the [[java.nio.file.Path]] to the private key file set, so as to call all methods in a fluent
       *   manner
@@ -117,11 +124,25 @@ private[cakelier] object RemoteConfiguration {
     /** Sets the passphrase value for the private key to be used in the [[RemoteConfiguration]] to be created.
       *
       * @param privateKeyPassphrase
-      *   a [[scala.Option]] containing the passphrase for the private key to be set
+      *   a [[scala.Option]] containing the passphrase for the private key to be set, or a [[scala.None]] if no private key
+      *   passphrase is to be set
       * @return
       *   this [[Factory]] with the passphrase for the private key set, so as to call all methods in a fluent manner
       */
     def privateKeyPassphrase(privateKeyPassphrase: Option[String]): Factory
+
+    /** Sets the fingerprint value for the [[RemoteConfiguration]] to be created. The fingerprint can be specified in either an
+      * MD5 colon-delimited format (16 hexadecimal octets, delimited by a colon), or in a Base64 encoded format for SHA-1 or
+      * SHA-256 fingerprints. The MD5 format can be prefixed, but it is not mandatory, with the string "MD5:", while the SHA-1 and
+      * SHA-256 formatted fingerprints must be prefixed respectively with "SHA1:" and "SHA256:" strings. The terminal "=" symbols
+      * are optional.
+      *
+      * @param fingerprint
+      *   a [[scala.Option]] containing the fingerprint to be set, or a [[scala.None]] if no fingerprint is to be set
+      * @return
+      *   this [[Factory]] with the fingerprint set, so as to call all methods in a fluent manner
+      */
+    def fingerprint(fingerprint: Option[String]): Factory
 
     /** Creates a new instance of the [[RemoteConfiguration]] trait, if all configuration parameters were correctly specified and
       * the factory is in a valid state, otherwise it will return all the encountered [[ValidationError]]s while creating the new
@@ -144,7 +165,8 @@ private[cakelier] object RemoteConfiguration {
       user: Option[String],
       password: Option[String],
       privateKeyFile: Option[Path],
-      privateKeyPassphrase: Option[String]
+      privateKeyPassphrase: Option[String],
+      fingerprint: Option[String]
     ) extends Factory {
 
       override def host(host: String): Factory = copy(host = Some(host))
@@ -160,6 +182,8 @@ private[cakelier] object RemoteConfiguration {
       override def privateKeyPassphrase(privateKeyPassphrase: Option[String]): Factory =
         copy(privateKeyPassphrase = privateKeyPassphrase)
 
+      override def fingerprint(fingerprint: Option[String]): Factory = copy(fingerprint = fingerprint)
+
       @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Nothing"))
       override def create: Either[Seq[ValidationError], RemoteConfiguration] = {
         val hostnameRegex =
@@ -167,6 +191,8 @@ private[cakelier] object RemoteConfiguration {
         val ipRegex =
           "^(?:(?:\\d|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])\\.){3}(?:\\d|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-5])$".r
         val userRegex = "^\\S+$".r
+        val md5FingerprintRegex = "^(?:MD5:)?[\\da-f]{2}(?::[\\da-f]{2}){15}$".r
+        val shaFingerprintRegex = "^SHA(?:1|256):(?:[A-Za-z\\d+/]{4})*(?:[A-Za-z\\d+/]{2}(?:==)?|[A-Za-z\\d+/]{3}=?)?$".r
         (
           host
             .toValid(MissingFieldValue("host"))
@@ -195,9 +221,14 @@ private[cakelier] object RemoteConfiguration {
           privateKeyFile.validNel[ValidationError].andThen {
             case f if f.forall(p => p.toFile.exists && p.toFile.canRead) => f.validNel[ValidationError]
             case _                                                       => InvalidPrivateKeyFileValue.invalidNel[Option[Path]]
+          },
+          fingerprint.validNel[ValidationError].andThen {
+            case f if f.forall(v => v.matches(md5FingerprintRegex.regex) || v.matches(shaFingerprintRegex.regex)) =>
+              f.validNel[ValidationError]
+            case _ => InvalidFingerPrintValue.invalidNel[Option[String]]
           }
         )
-          .mapN((h, p, u, f) => RemoteConfigurationImpl(h, p, u, password, f, privateKeyPassphrase))
+          .mapN((h, p, u, k, f) => RemoteConfigurationImpl(h, p, u, password, k, privateKeyPassphrase, f))
           .toEither
           .leftMap(_.toList)
       }
@@ -211,7 +242,8 @@ private[cakelier] object RemoteConfiguration {
         user = None,
         password = None,
         privateKeyFile = None,
-        privateKeyPassphrase = None
+        privateKeyPassphrase = None,
+        fingerprint = None
       )
   }
 
@@ -222,7 +254,8 @@ private[cakelier] object RemoteConfiguration {
     user: String,
     password: Option[String],
     privateKeyFile: Option[Path],
-    privateKeyPassphrase: Option[String]
+    privateKeyPassphrase: Option[String],
+    fingerprint: Option[String]
   ) extends RemoteConfiguration
 
   /** Returns a new empty instance of the [[RemoteConfiguration.Factory]] trait, so as to create a new [[RemoteConfiguration]]
