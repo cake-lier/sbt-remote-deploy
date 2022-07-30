@@ -59,6 +59,7 @@ lazy val root = (project in file("."))
         has port 2023
         has user "root"
         has password "example"
+        has verifyIdentity false
       }
     ),
     remoteDeployArtifacts := Seq(
