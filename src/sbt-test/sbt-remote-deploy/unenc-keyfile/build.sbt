@@ -60,6 +60,7 @@ lazy val root = (project in file("."))
         has port 2024
         has user "root"
         has privateKeyFile (baseDirectory.value / "key.pem").toString
+        has verifyIdentity false
       }
     ),
     remoteDeployArtifacts := Seq(
