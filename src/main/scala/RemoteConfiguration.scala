@@ -242,7 +242,7 @@ private[cakelier] object RemoteConfiguration {
           fingerprint.validNel[ValidationError].andThen {
             case f if f.forall(v => v.matches(md5FingerprintRegex.regex) || v.matches(shaFingerprintRegex.regex)) =>
               f.validNel[ValidationError]
-            case _ => InvalidFingerPrintValue.invalidNel[Option[String]]
+            case _ => InvalidFingerprintValue.invalidNel[Option[String]]
           }
         )
           .mapN((h, p, u, k, f) => RemoteConfigurationImpl(h, p, u, password, k, privateKeyPassphrase, f, verifyIdentity))
