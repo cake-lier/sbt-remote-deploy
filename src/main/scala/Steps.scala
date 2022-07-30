@@ -1,13 +1,12 @@
 package io.github.cakelier
 
-import java.io.File
-
-import scala.annotation.tailrec
-import scala.util._
-
 import net.schmizz.sshj.SSHClient
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier
 import sbt.util.Logger
+
+import java.io.File
+import scala.annotation.tailrec
+import scala.util._
 
 /** Collection of methods for executing the steps composing this SBT plugin.
   *
@@ -43,11 +42,15 @@ private[cakelier] object Steps {
   ): Unit = {
     val client = new SSHClient
     try {
-      Try(client.loadKnownHosts()) match {
-        case Failure(t) => log.debug(s"Could not load known hosts, operation failed with exception: $t")
-        case Success(_) => log.debug("Known hosts successfully loaded")
+      if (configuration.verifyIdentity) {
+        Try(client.loadKnownHosts()) match {
+          case Failure(t) => log.debug(s"Could not load known hosts, operation failed with exception: $t")
+          case Success(_) => log.debug("Known hosts successfully loaded")
+        }
+        configuration.fingerprint.foreach(client.addHostKeyVerifier)
+      } else {
+        client.addHostKeyVerifier(new PromiscuousVerifier())
       }
-      configuration.fingerprint.fold(client.addHostKeyVerifier(new PromiscuousVerifier()))(client.addHostKeyVerifier)
       client.connect(configuration.host, configuration.port)
       try {
         configuration

@@ -69,6 +69,16 @@ private[cakelier] object Validation {
     /* Validates the private key passphrase field. */
     def validatePrivateKeyPassphrase(config: Config): Validation[Option[String]] =
       validateOptionalStringField(config, "privateKeyPassphrase", InvalidStringFieldValue("privateKeyPassphrase"))
+
+    def validateFingerprint(config: Config): Validation[Option[String]] =
+      validateOptionalStringField(config, "fingerprint", InvalidFingerprintValue)
+
+    def validateVerifyIdentity(config: Config): Validation[Option[Boolean]] =
+      (if (config.root().containsKey("verifyIdentity")) Try(Some(config.getBoolean("verifyIdentity"))) else Success(None))
+        .toValidated
+        .leftMap(_ => InvalidVerifyIdentityValue)
+        .leftWiden[ValidationError]
+        .toValidatedNel
   }
 
   import validation.Validation.FieldValidators._
@@ -103,16 +113,20 @@ private[cakelier] object Validation {
               validatePort(c),
               validatePassword(c),
               validatePrivateKeyFile(c),
-              validatePrivateKeyPassphrase(c)
+              validatePrivateKeyPassphrase(c),
+              validateFingerprint(c),
+              validateVerifyIdentity(c)
             )
-              .mapN((p, w, f, pp) =>
+              .mapN((p, w, k, kp, f, i) =>
                 RemoteConfiguration()
                   .host(t._1)
                   .port(p.getOrElse(22))
                   .user(t._2)
                   .password(w)
-                  .privateKeyFile(f)
-                  .privateKeyPassphrase(pp)
+                  .privateKeyFile(k)
+                  .privateKeyPassphrase(kp)
+                  .fingerprint(f)
+                  .verifyIdentity(i.getOrElse(true))
                   .create
               )
           )

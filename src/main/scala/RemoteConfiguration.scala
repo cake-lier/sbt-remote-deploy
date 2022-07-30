@@ -16,8 +16,10 @@ import validation.ValidationError._
   * required. Moreover, a passphrase can be specified for the private key, if it has been encrypted. If both the password and the
   * [[java.nio.file.Path]] to the private key were specified, the last one takes precedence and the first one is ignored. If
   * neither is specified, an empty password will be supplied. Last, a fingerprint can be specified for verifying the identity of
-  * the remote location to which connecting and fail if not corresponding. Instances of this trait must be constructed through its
-  * companion object.
+  * the remote location to which connecting and fail if not corresponding. By default, the connection to the remote is established
+  * only if the identity can be verified, but this feature can be turned off.
+  *
+  * Instances of this trait must be constructed through its companion object.
   */
 trait RemoteConfiguration {
 
@@ -49,6 +51,9 @@ trait RemoteConfiguration {
     * present, a [[scala.None]] if absent.
     */
   val fingerprint: Option[String]
+
+  /** Returns whether or not the connection to the remote location is to be made only if its identity can be verified. */
+  val verifyIdentity: Boolean
 }
 
 /** Companion object to the [[RemoteConfiguration]] trait, containing its factory. */
@@ -144,6 +149,15 @@ private[cakelier] object RemoteConfiguration {
       */
     def fingerprint(fingerprint: Option[String]): Factory
 
+    /** Sets the "verify identity" parameter for the [[RemoteConfiguration]] to be created. This parameter determines whether or
+      * not the connection is to be made to the remote location only if its identity can be verified. By default, its value is
+      * <code>true</code>.
+      *
+      * @return
+      *   this [[Factory]] with the "verify identity" parameter set, so as to call all methods in a fluent manner
+      */
+    def verifyIdentity(verifyIdentity: Boolean): Factory
+
     /** Creates a new instance of the [[RemoteConfiguration]] trait, if all configuration parameters were correctly specified and
       * the factory is in a valid state, otherwise it will return all the encountered [[ValidationError]]s while creating the new
       * instance.
@@ -166,7 +180,8 @@ private[cakelier] object RemoteConfiguration {
       password: Option[String],
       privateKeyFile: Option[Path],
       privateKeyPassphrase: Option[String],
-      fingerprint: Option[String]
+      fingerprint: Option[String],
+      verifyIdentity: Boolean
     ) extends Factory {
 
       override def host(host: String): Factory = copy(host = Some(host))
@@ -183,6 +198,8 @@ private[cakelier] object RemoteConfiguration {
         copy(privateKeyPassphrase = privateKeyPassphrase)
 
       override def fingerprint(fingerprint: Option[String]): Factory = copy(fingerprint = fingerprint)
+
+      override def verifyIdentity(verifyIdentity: Boolean): Factory = copy(verifyIdentity = verifyIdentity)
 
       @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Nothing"))
       override def create: Either[Seq[ValidationError], RemoteConfiguration] = {
@@ -228,7 +245,7 @@ private[cakelier] object RemoteConfiguration {
             case _ => InvalidFingerPrintValue.invalidNel[Option[String]]
           }
         )
-          .mapN((h, p, u, k, f) => RemoteConfigurationImpl(h, p, u, password, k, privateKeyPassphrase, f))
+          .mapN((h, p, u, k, f) => RemoteConfigurationImpl(h, p, u, password, k, privateKeyPassphrase, f, verifyIdentity))
           .toEither
           .leftMap(_.toList)
       }
@@ -243,7 +260,8 @@ private[cakelier] object RemoteConfiguration {
         password = None,
         privateKeyFile = None,
         privateKeyPassphrase = None,
-        fingerprint = None
+        fingerprint = None,
+        verifyIdentity = true
       )
   }
 
@@ -255,7 +273,8 @@ private[cakelier] object RemoteConfiguration {
     password: Option[String],
     privateKeyFile: Option[Path],
     privateKeyPassphrase: Option[String],
-    fingerprint: Option[String]
+    fingerprint: Option[String],
+    verifyIdentity: Boolean
   ) extends RemoteConfiguration
 
   /** Returns a new empty instance of the [[RemoteConfiguration.Factory]] trait, so as to create a new [[RemoteConfiguration]]

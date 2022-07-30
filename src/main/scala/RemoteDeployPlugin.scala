@@ -115,10 +115,19 @@ object RemoteDeployPlugin extends AutoPlugin {
       /** The fingerprint to be used for identifying the remote location which the [[RemoteConfiguration]] to create refers to.
         *
         * @param fingerprint
-        *   to be used for identifying the remote location
+        *   the fingerprint to be used for identifying the remote location
         */
       def fingerprint(fingerprint: String): Unit =
         configuration = configuration.fingerprint(Some(fingerprint))
+
+      /** The parameter "verify identity" used for connecting to the remote location only if the identity can be verified, remote
+        * which the [[RemoteConfiguration]] to create refers to.
+        *
+        * @param verifyIdentity
+        *   the parameter to be used for specifying to connect to the remote location only if the identity can be verified
+        */
+      def verifyIdentity(verifyIdentity: Boolean): Unit =
+        configuration = configuration.verifyIdentity(verifyIdentity)
     }
 
     /** Allows to use the DSL for specifying a [[RemoteConfiguration]]. With its first parameter it allows to specify the name of
