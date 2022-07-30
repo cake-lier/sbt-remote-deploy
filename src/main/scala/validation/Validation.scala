@@ -1,65 +1,93 @@
 package io.github.cakelier
 package validation
 
-import java.nio.file.Path
-
-import scala.util.{Success, Try}
+import validation.ValidationError._
 
 import cats.data._
 import cats.syntax.all._
 import com.typesafe.config.Config
 import sbt.util.Logger
 
-object Validation {
+import java.nio.file.Path
+import scala.util.{Success, Try}
 
-  def validateHost(c: Config, name: String): ValidatedNel[ValidationError, String] =
-    Try(c.getString("host"))
-      .toValidated
-      .leftMap(_ => MissingHostValue(name))
-      .leftWiden[ValidationError]
-      .toValidatedNel
+/** Collection of methods for validating a [[Config]] object as extracted from a configuration file.
+  *
+  * This object represents a module of functions to be used for validating a [[com.typesafe.config.Config]] object as parsed from
+  * a configuration files. It is available one validator for each field, which are in turn be used by a method for validating the
+  * whole configuration. Each validator is responsible only for the validation of the presence and the type of the field, the
+  * actual validation of the content of the field is demanded to the [[RemoteConfiguration.Factory]].
+  */
+private[cakelier] object Validation {
 
-  def validatePort(c: Config, name: String): ValidatedNel[ValidationError, Option[Int]] =
-    (if (c.root().containsKey("port")) Try(Some(c.getInt("port"))) else Success(None))
-      .toValidated
-      .leftMap(_ => WrongPortFormat(name))
-      .leftWiden[ValidationError]
-      .andThen[ValidationError, Option[Int]] {
-        case Some(p) =>
-          if (p > 0 && p < 65535) Some(p).valid[ValidationError] else WrongPortFormat(name).invalid[Option[Int]]
-        case _ => None.valid[ValidationError]
-      }
-      .toValidatedNel
+  /* The module containing all the field validators. */
+  private object FieldValidators {
 
-  def validateUser(c: Config, name: String): ValidatedNel[ValidationError, String] =
-    Try(c.getString("user"))
-      .toValidated
-      .leftMap(_ => MissingUserValue(name))
-      .leftWiden[ValidationError]
-      .toValidatedNel
+    /* Validates the host field. */
+    def validateHost(c: Config, name: String): ValidatedNel[ValidationError, String] =
+      Try(c.getString("host"))
+        .toValidated
+        .leftMap(_ => MissingHostValue(name))
+        .leftWiden[ValidationError]
+        .toValidatedNel
 
-  def validatePassword(c: Config, name: String): ValidatedNel[ValidationError, Option[String]] =
-    (if (c.root().containsKey("password")) Try(Some(c.getString("password"))) else Success(None))
-      .toValidated
-      .leftMap(_ => WrongStringOptionalFieldFormat(name, "password"))
-      .leftWiden[ValidationError]
-      .toValidatedNel
+    /* Validates the port field. */
+    def validatePort(c: Config, name: String): ValidatedNel[ValidationError, Option[Int]] =
+      (if (c.root().containsKey("port")) Try(Some(c.getInt("port"))) else Success(None))
+        .toValidated
+        .leftMap(_ => WrongPortFormat(name))
+        .leftWiden[ValidationError]
+        .toValidatedNel
 
-  def validatePrivateKeyFile(c: Config, name: String): ValidatedNel[ValidationError, Option[Path]] =
-    (if (c.root().containsKey("privateKeyFile")) Try(Some(c.getString("privateKeyFile"))) else Success(None))
-      .toValidated
-      .leftMap(_ => WrongPrivateKeyFileFormat(name))
-      .leftWiden[ValidationError]
-      .map(_.map(Path.of(_)))
-      .toValidatedNel
+    /* Validates the user field. */
+    def validateUser(c: Config, name: String): ValidatedNel[ValidationError, String] =
+      Try(c.getString("user"))
+        .toValidated
+        .leftMap(_ => MissingUserValue(name))
+        .leftWiden[ValidationError]
+        .toValidatedNel
 
-  def validatePrivateKeyPassphrase(c: Config, name: String): ValidatedNel[ValidationError, Option[String]] =
-    (if (c.root().containsKey("privateKeyPassphrase")) Try(Some(c.getString("privateKeyPassphrase"))) else Success(None))
-      .toValidated
-      .leftMap(_ => WrongStringOptionalFieldFormat(name, "privateKeyPassphrase"))
-      .leftWiden[ValidationError]
-      .toValidatedNel
+    /* Validates the password field. */
+    def validatePassword(c: Config, name: String): ValidatedNel[ValidationError, Option[String]] =
+      (if (c.root().containsKey("password")) Try(Some(c.getString("password"))) else Success(None))
+        .toValidated
+        .leftMap(_ => WrongStringFieldFormat(name, "password"))
+        .leftWiden[ValidationError]
+        .toValidatedNel
 
+    /* Validates the private key file field. */
+    def validatePrivateKeyFile(c: Config, name: String): ValidatedNel[ValidationError, Option[Path]] =
+      (if (c.root().containsKey("privateKeyFile")) Try(Some(c.getString("privateKeyFile"))) else Success(None))
+        .toValidated
+        .leftMap(_ => WrongPrivateKeyFileFormat(name))
+        .leftWiden[ValidationError]
+        .map(_.map(Path.of(_)))
+        .toValidatedNel
+
+    /* Validates the private key passphrase field. */
+    def validatePrivateKeyPassphrase(c: Config, name: String): ValidatedNel[ValidationError, Option[String]] =
+      (if (c.root().containsKey("privateKeyPassphrase")) Try(Some(c.getString("privateKeyPassphrase"))) else Success(None))
+        .toValidated
+        .leftMap(_ => WrongStringFieldFormat(name, "privateKeyPassphrase"))
+        .leftWiden[ValidationError]
+        .toValidatedNel
+  }
+
+  import validation.Validation.FieldValidators._
+
+  /** Validates a [[Config]] instance containing a possible [[RemoteConfiguration]] combining all the fields validators defined
+    * inside this object.
+    *
+    * @param configuration
+    *   the [[Config]] instance to validate, if no exceptions were thrown while reading it, the corresponding exception otherwise
+    * @param name
+    *   the name of the configuration to validate
+    * @param log
+    *   the [[sbt.Logger]] to log the errors encountered during the validation
+    * @return
+    *   a [[scala.Option]] containing the [[RemoteConfiguration]] contained inside the given [[Config]] instance, if valid, a
+    *   [[scala.None]] otherwise
+    */
   @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Nothing"))
   def validateConfiguration(configuration: Try[Config], name: String, log: Logger): Option[RemoteConfiguration] =
     configuration

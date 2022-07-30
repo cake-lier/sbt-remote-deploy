@@ -9,14 +9,36 @@ import net.schmizz.sshj.SSHClient
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier
 import sbt.util.Logger
 
-object Phases {
+/** Collection of methods for executing the steps composing this SBT plugin.
+  *
+  * This SBT plugin allows to connect to many different remote locations, or servers, and deploy one or more artifacts to them.
+  * Before doing so, some functions can be invoked, as after the deployment. In these function the user can run commands on those
+  * remote locations, for example for preparing the remote for the deployment or for cleaning up after. The connection happens
+  * through a SSH connection, that needs to be established once for each remote.
+  */
+private[cakelier] object Steps {
 
+  /** Establishes a connection with the remote location specified in the "configuration" parameter, then runs the commands on the
+    * remote defined through the "beforeHook" parameter, deploys all artifacts defined through the "artifacts" parameter and then
+    * runs the commands on the remote defined through the "afterHook" parameter.
+    *
+    * @param configuration
+    *   the [[RemoteConfiguration]] of the remote location to contact
+    * @param artifacts
+    *   the pairs containing the local [[java.io.File]] to be copied and the path on the remote location to which copy the file
+    * @param beforeHook
+    *   the hook function containing the commands to be invoked on the remote location before the deployment of the artifacts
+    * @param afterHook
+    *   the hook function containing the commands to be invoked on the remote location before the deployment of the artifacts
+    * @param log
+    *   the [[sbt.Logger]] to be used for logging the state of the plugin
+    */
   @SuppressWarnings(Array("org.wartremover.warts.ToString"))
   def connectToRemote(
     configuration: RemoteConfiguration,
     artifacts: Seq[(File, String)],
-    beforeHooks: Option[Remote => Unit],
-    afterHooks: Option[Remote => Unit],
+    beforeHook: Option[Remote => Unit],
+    afterHook: Option[Remote => Unit],
     log: Logger
   ): Unit = {
     val client = new SSHClient
@@ -40,14 +62,14 @@ object Phases {
               )(p => client.authPublickey(configuration.user, client.loadKeys(f.toString, p)))
           )
         log.debug(s"Connection with remote ${configuration.host} established, executing before-deployment hooks.")
-        runHooks(client, beforeHooks)
+        runHook(client, beforeHook)
         log.debug(s"Before-deployment hooks executed, copying artifacts.")
         copyArtifacts(client, artifacts, log) match {
           case Failure(_) =>
             log.error("The copy of the remaining files has been interrupted due to the exception thrown.")
           case Success(_) =>
             log.debug("All artifacts were copied correctly, executing after-deployment hooks.")
-            runHooks(client, afterHooks)
+            runHook(client, afterHook)
         }
       } finally {
         client.disconnect()
@@ -57,8 +79,9 @@ object Phases {
     }
   }
 
-  def runHooks(client: SSHClient, hooks: Option[Remote => Unit]): Unit =
-    hooks.foreach(f => {
+  /* Launches a hook containing commands to execute on the remote location. */
+  private def runHook(client: SSHClient, hook: Option[Remote => Unit]): Unit =
+    hook.foreach(f => {
       val session = client.startSession
       try {
         f(Remote(session))
@@ -67,7 +90,8 @@ object Phases {
       }
     })
 
-  def copyArtifacts(client: SSHClient, artifacts: Seq[(File, String)], log: Logger): Try[Unit] = {
+  /* Copies the artifacts to the remote location. */
+  private def copyArtifacts(client: SSHClient, artifacts: Seq[(File, String)], log: Logger): Try[Unit] = {
     @tailrec
     def copyArtifact(remaining: Seq[(File, String)]): Try[Unit] = remaining match {
       case (localFile, remotePath) :: t =>
