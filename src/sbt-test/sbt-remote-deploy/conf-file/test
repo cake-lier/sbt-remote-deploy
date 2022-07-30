@@ -8,5 +8,7 @@
 > teardownTask
 # Test if the previous task succeeded
 $ exists SUCCESS
-# Cleanup file
+$ exists SUCCESS2
+# Cleanup files
 $ delete SUCCESS
+$ delete SUCCESS2
