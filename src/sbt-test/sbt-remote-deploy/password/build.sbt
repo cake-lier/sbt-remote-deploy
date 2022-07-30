@@ -64,6 +64,25 @@ lazy val root = (project in file("."))
     remoteDeployArtifacts := Seq(
       (Compile / packageBin).value.getParentFile / (assembly / assemblyJarName).value -> "/root/main.jar"
     ),
+    remoteDeployBeforeHook := Some(remote => {
+      val stdout = new ByteArrayOutputStream()
+      val stderr = new ByteArrayOutputStream()
+      val result = Await.result(remote.runPipe("ls")(stdout, stderr), Duration.Inf)
+      if (
+        result.exitCode.isEmpty
+        || result.exitCode.get != 0
+        || stdout.toString != "\n"
+      ) {
+        println(s"""
+             |Command did not return expected result, it returned instead:
+             |Exit code: ${result.exitCode.getOrElse("None")}
+             |Stdout: ${stdout.toString}
+             |Stderr: ${stderr.toString}
+             |""".stripMargin)
+      } else {
+        Files.createFile(baseDirectory.value.toPath.resolve("SUCCESS2"))
+      }
+    }),
     remoteDeployAfterHooks := Some(remote => {
       val stdout = new ByteArrayOutputStream()
       val stderr = new ByteArrayOutputStream()
