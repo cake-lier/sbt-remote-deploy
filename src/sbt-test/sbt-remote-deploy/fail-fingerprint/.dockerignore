@@ -1,0 +1,7 @@
+.bsp
+.idea
+project/
+src/
+target/
+build.sbt
+test
