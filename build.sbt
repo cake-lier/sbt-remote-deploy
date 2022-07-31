@@ -44,7 +44,6 @@ ThisBuild / scalafixDependencies ++= Seq(
 lazy val root = (project in file("."))
   .enablePlugins(SbtPlugin)
   .enablePlugins(SiteScaladocPlugin)
-  .enablePlugins(GhpagesPlugin)
   .settings(
     name := "sbt-remote-deploy",
     scriptedLaunchOpts := {

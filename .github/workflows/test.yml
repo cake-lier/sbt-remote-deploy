@@ -9,11 +9,14 @@ on:
       - LICENSE
       - README.md
       - renovate.json
+      - '.github/workflows/**'
       - .releaserc.yaml
       - 'package*.json'
+  workflow_call:
+
 jobs:
-  test:
-    name: Build and Test
+  build:
+    name: Build and test
     strategy:
       matrix:
         java:
