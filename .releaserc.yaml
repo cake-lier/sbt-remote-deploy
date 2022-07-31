@@ -30,8 +30,9 @@ plugins:
   - 'semantic-release-license'
   - - '@semantic-release/exec'
     - publishCmd: |
-        sbt publishSigned || exit 1
-        sbt sonatypeBundleRelease || exit 2
+        sbt ghpagesPushSite || exit 10
+        sbt publishSigned || exit 11
+        sbt sonatypeBundleRelease || exit 12
   - - '@semantic-release/git'
     - assets:
         - build.sbt
