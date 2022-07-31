@@ -140,8 +140,8 @@ object RemoteDeployPlugin extends AutoPlugin {
       *   the parameter to be used as a place to call the DSL methods
       * @return
       *   a new pair made of the name of a [[RemoteConfiguration]] and a [[scala.Either]] containing the [[RemoteConfiguration]]
-      *   itself, if all the parameters were valid, a [[scala.Seq]] with all [[ValidationError]]s encountered while validating the
-      *   possible [[RemoteConfiguration]] otherwise
+      *   itself, if all the parameters were valid, a [[scala.Seq]] with all errors encountered while validating the possible
+      *   [[RemoteConfiguration]] otherwise
       */
     def remoteConfiguration(withName: String)(body: => Unit): (String, Either[Seq[ValidationError], RemoteConfiguration]) = {
       body

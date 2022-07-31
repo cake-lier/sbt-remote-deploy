@@ -43,6 +43,8 @@ ThisBuild / scalafixDependencies ++= Seq(
 
 lazy val root = (project in file("."))
   .enablePlugins(SbtPlugin)
+  .enablePlugins(SiteScaladocPlugin)
+  .enablePlugins(GhpagesPlugin)
   .settings(
     name := "sbt-remote-deploy",
     scriptedLaunchOpts := {
@@ -63,5 +65,7 @@ lazy val root = (project in file("."))
       "-Ywarn-unused",
       "-Ypartial-unification"
     ),
-    wartremoverErrors ++= Warts.allBut(Wart.GlobalExecutionContext, Wart.ListUnapply)
+    wartremoverErrors ++= Warts.allBut(Wart.GlobalExecutionContext, Wart.ListUnapply),
+    SiteScaladoc / siteSubdirName := "/",
+    git.remoteRepo := scmInfo.value.get.connection.replace("scm:", "")
   )

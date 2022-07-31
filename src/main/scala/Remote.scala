@@ -20,7 +20,7 @@ trait Remote {
     * execution.
     *
     * @param cmd
-    *   the [[String]] representing the command to be executed
+    *   the string representing the command to be executed
     * @return
     *   a [[scala.concurrent.Future]] containing the result of the command execution
     */
@@ -31,7 +31,7 @@ trait Remote {
     * their choice.
     *
     * @param cmd
-    *   the [[String]] representing the command to be executed
+    *   the string representing the command to be executed
     * @param stdout
     *   the [[java.io.OutputStream]] to which redirecting the standard output of the command
     * @param stderr
