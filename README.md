@@ -38,8 +38,8 @@ identity, which can be supplied for checking if the two match, and a parameter t
 process, which is by default `true`. No worries if you already connected with the remote, and you saved its identity to the 
 `known_hosts` file, the default files containing already known hosts are loaded by default, if found on your local machine. 
 For knowing how to specify those parameters within a configuration file, jump to section 
-"[Configuration file](#configuration-file)". If you want to specify your configuration via code, for example in your `build.
-sbt` file, jump to section "[DSL](#dsl)".
+"[Configuration file](#configuration-file)". If you want to specify your configuration via code, for example in your 
+`build.sbt` file, jump to section "[DSL](#dsl)".
 
 After creating your configurations, you just need to put them where the plugin can find them. The setting key 
 `remoteDeployConfFiles` can be used for specifying the path **relative** to the current project folder of all your configuration 
@@ -63,8 +63,11 @@ remotely. This key accepts pairs of two things: the local `sbt.File` to be deplo
 same of the one in the local machine. Being the local file an `sbt.File`, this plugin is thought for working hand in hand 
 with the "sbt-assembly" plugin and the default `compile` task.
 
-When everything is configured correctly, you can launch your remote deploy task. Just write on your terminal `sbt remoteDeploy 
-<name of the configuration>` and the plugin will load all your configurations, search for the one with the name you inserted 
+When everything is configured correctly, you can launch your remote deploy task. Just write on your terminal
+
+`sbt remoteDeploy <configuration name>` 
+
+and the plugin will load all your configurations, search for the one with the name you inserted 
 and use it in its deployment pipeline.
 
 ### Setting keys
