@@ -81,7 +81,7 @@ and use it in its deployment pipeline.
 
 A sample file configuration is the one that follows.
 
-```JSON
+```HOCON
 remotes {
   test {
     host = localhost
