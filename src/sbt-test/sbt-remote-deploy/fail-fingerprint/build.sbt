@@ -11,7 +11,7 @@ import scala.concurrent.Await
 
 ThisBuild / version := "1.0.0"
 
-ThisBuild / scalaVersion := "2.13.8"
+ThisBuild / scalaVersion := "2.13.9"
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
