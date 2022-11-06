@@ -1,5 +1,6 @@
 import Dependencies._
 
+ThisBuild / name := "sbt-remote-deploy"
 ThisBuild / organization := "io.github.cake-lier"
 ThisBuild / organizationName := "cake_lier"
 ThisBuild / scmInfo := Some(
@@ -65,6 +66,5 @@ lazy val root = (project in file("."))
       "-Ypartial-unification"
     ),
     wartremoverErrors ++= Warts.allBut(Wart.GlobalExecutionContext, Wart.ListUnapply),
-    SiteScaladoc / siteSubdirName := "/",
-    git.remoteRepo := scmInfo.value.get.connection.replace("scm:", "")
+    SiteScaladoc / siteSubdirName := "/"
   )
