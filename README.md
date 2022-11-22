@@ -1,6 +1,6 @@
 # sbt-remote-deploy
 
-[![Build status](https://github.com/cake-lier/sbt-remote-deploy/actions/workflows/publish.yml/badge.svg)](https://github.com/cake-lier/sbt-remmote-deploy/actions/workflows/publish.yml)
+[![Build status](https://github.com/cake-lier/sbt-remote-deploy/actions/workflows/publish.yml/badge.svg)](https://github.com/cake-lier/sbt-remote-deploy/actions/workflows/publish.yml)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/io.github.cake-lier/sbt-remote-deploy/badge.svg)](https://maven-badges.herokuapp.com/maven-central/io.github.cake-lier/sbt-remote-deploy/)
 [![semantic-release: conventional-commits](https://img.shields.io/badge/semantic--release-conventional_commits-e10098?logo=semantic-release)](https://github.com/semantic-release/semantic-release)
 [![License: MIT](https://img.shields.io/github/license/cake-lier/sbt-remote-deploy)](https://github.com/cake-lier/sbt-remote-deploy/blob/main/LICENSE)
