@@ -37,7 +37,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Setup scala environment
-        uses: olafurpg/setup-scala@v13
+        uses: olafurpg/setup-scala@v14
         with:
           java-version: openjdk@1.17
       - name: Generate scaladoc site
