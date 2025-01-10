@@ -12,7 +12,7 @@ import scala.jdk.CollectionConverters.setAsJavaSetConverter
 
 ThisBuild / version := "1.0.0"
 
-ThisBuild / scalaVersion := "2.13.15"
+ThisBuild / scalaVersion := "2.13.16"
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
