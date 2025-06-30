@@ -1,5 +1,5 @@
 addSbtPlugin("org.jetbrains.scala" % "sbt-ide-settings" % "1.1.2")
-addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.4")
+addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.5")
 addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.14.3")
 addSbtPlugin("org.wartremover" % "sbt-wartremover" % "3.4.0")
 addSbtPlugin("io.shiftleft" % "sbt-ci-release-early" % "2.1.11")
