@@ -1,4 +1,4 @@
-addSbtPlugin("org.jetbrains.scala" % "sbt-ide-settings" % "1.1.2")
+addSbtPlugin("org.jetbrains.scala" % "sbt-ide-settings" % "1.1.3")
 addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "2.3.1")
 sys.props.get("plugin.version") match {
   case Some(x) => addSbtPlugin("io.github.cake-lier" % "sbt-remote-deploy" % x)
