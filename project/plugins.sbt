@@ -1,7 +1,7 @@
 addSbtPlugin("org.jetbrains.scala" % "sbt-ide-settings" % "1.1.3")
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.5")
 addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.14.5")
-addSbtPlugin("org.wartremover" % "sbt-wartremover" % "3.5.3")
+addSbtPlugin("org.wartremover" % "sbt-wartremover" % "3.5.4")
 addSbtPlugin("io.shiftleft" % "sbt-ci-release-early" % "2.1.11")
 addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.4.1")
 addSbtPlugin("com.thoughtworks.sbt-api-mappings" % "sbt-api-mappings" % "3.0.2")
