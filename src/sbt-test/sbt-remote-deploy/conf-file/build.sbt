@@ -11,7 +11,7 @@ import scala.concurrent.duration.Duration
 
 ThisBuild / version := "1.0.0"
 
-ThisBuild / scalaVersion := "2.13.18"
+ThisBuild / scalaVersion := "3.8.2"
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
