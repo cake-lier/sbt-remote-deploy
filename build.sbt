@@ -34,7 +34,7 @@ ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
 
-ThisBuild / scalaVersion := "2.12.21"
+ThisBuild / scalaVersion := "2.13.18"
 
 ThisBuild / idePackagePrefix := Some("io.github.cakelier")
 
